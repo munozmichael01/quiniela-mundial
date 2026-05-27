@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
 const schema = z.object({
@@ -15,10 +16,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { alias, password } = parsed.data;
-  const supabase = await createClient();
+  const serviceSupabase = createServiceClient();
 
   // Lookup email by alias
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await serviceSupabase
     .from("users")
     .select("email")
     .eq("alias", alias)
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Alias o contraseña incorrectos" }, { status: 401 });
   }
 
+  const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email: profile.email,
     password,
