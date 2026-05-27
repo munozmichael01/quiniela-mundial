@@ -1950,6 +1950,7 @@ function AdminScreen({
   phaseOpen, setPhaseOpen,
 }) {
   const [tab, setTab] = React.useState("summary");
+  const [mode, setMode] = React.useState("live");
   const [toast, setToast] = React.useState("");
 
   function flash(msg) {
@@ -1957,9 +1958,46 @@ function AdminScreen({
     setTimeout(() => setToast(""), 2200);
   }
 
+  const liveMatches = window.QUINIELA_DATA.MATCHES;
+  const previewMatches = React.useMemo(() => {
+    const ids = new Set(liveMatches.map(m => m.id));
+    const ko = (window.QUINIELA_DATA.MATCHES_KO || []).filter(m => !ids.has(m.id));
+    return [...liveMatches, ...ko];
+  }, [liveMatches]);
+  const previewResults = React.useMemo(() => makePreviewRealResults(previewMatches), [previewMatches]);
+  const previewParticipants = React.useMemo(() => makePreviewParticipants(previewMatches), [previewMatches]);
+  const previewUsers = React.useMemo(() => previewParticipants.map((p, i) => ({
+    id: i + 1,
+    user: p.user,
+    name: p.name,
+    email: p.email || `${p.user}@preview.local`,
+    pass: "preview",
+    initials: p.initials,
+    paid: i % 5 !== 0,
+  })), [previewParticipants]);
+  const previewOfficialBonus = React.useMemo(() => ({
+    campeon: "Argentina",
+    subcampeon: "Francia",
+    goleador: "Kylian Mbappé (FRA)",
+    mvp: "Lionel Messi (ARG)",
+    portero: "Emiliano Martínez (ARG)",
+  }), []);
+  const previewParticipantBonus = React.useMemo(() => makePreviewParticipantBonus(previewParticipants), [previewParticipants]);
+  const previewPhaseOpen = React.useMemo(() => Object.fromEntries(window.QUINIELA_DATA.PHASES.map(p => [p.id, true])), []);
+
+  const isPreview = mode === "preview";
+  const viewMatches = isPreview ? previewMatches : liveMatches;
+  const viewParticipants = isPreview ? previewParticipants : window.QUINIELA_DATA.PARTICIPANTS;
+  const viewResults = isPreview ? previewResults : realResults;
+  const viewUsers = isPreview ? previewUsers : users;
+  const viewOfficialBonus = isPreview ? previewOfficialBonus : officialBonus;
+  const viewParticipantBonus = isPreview ? previewParticipantBonus : participantBonus;
+  const viewPhaseOpen = isPreview ? previewPhaseOpen : phaseOpen;
+
   const tabs = [
     { id: "summary",   label: "Resumen" },
     { id: "users",     label: "Usuarios" },
+    { id: "groups",    label: "Grupos" },
     { id: "phases",    label: "Fases" },
     { id: "results",   label: "Resultados" },
     { id: "matrix",    label: "Por jugador" },
@@ -1981,6 +2019,18 @@ function AdminScreen({
       </div>
 
       <div className="section" style={{paddingBottom: 8}}>
+        <div className="admin-mode-row">
+          <div className="pill-tabs">
+            <button className={`pill-tab ${mode === "live" ? "active" : ""}`} onClick={() => setMode("live")}>Live</button>
+            <button className={`pill-tab ${mode === "preview" ? "active" : ""}`} onClick={() => setMode("preview")}>Full Preview</button>
+          </div>
+          <div className="muted-2" style={{fontSize: 11.5}}>
+            {isPreview ? "Visualización completa con datos de prueba. No edita datos reales." : "Datos reales de producción."}
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
         <div className="pill-tabs" style={{display: "flex", overflowX: "auto", maxWidth: "100%"}}>
           {tabs.map(t => (
             <button key={t.id}
@@ -1992,13 +2042,23 @@ function AdminScreen({
         </div>
       </div>
 
-      {tab === "summary" && <SummaryTab users={users} realResults={realResults} phaseOpen={phaseOpen}/>}
-      {tab === "users"   && <UsersTab users={users} setUsers={setUsers} flash={flash}/>}
-      {tab === "phases"  && <PhasesTab phaseOpen={phaseOpen} setPhaseOpen={setPhaseOpen} flash={flash}/>}
-      {tab === "results" && <ResultsTab realResults={realResults} setRealResults={setRealResults}/>}
-      {tab === "matrix"  && <MatrixTab realResults={realResults}/>}
-      {tab === "bonus"   && <OfficialBonusTab officialBonus={officialBonus} setOfficialBonus={setOfficialBonus} flash={flash}/>}
-      {tab === "pbonus"  && <ParticipantBonusTab participantBonus={participantBonus} officialBonus={officialBonus}/>}
+      {isPreview && (
+        <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
+          <div className="notice closed">
+            <Icon.Eye size={16}/>
+            <div><strong>Full Preview.</strong><br/>Modo solo lectura para visualizar fases completas, usuarios de prueba, resultados, ranking y bonus sin tocar Live.</div>
+          </div>
+        </div>
+      )}
+
+      {tab === "summary" && <SummaryTab users={viewUsers} realResults={viewResults} phaseOpen={viewPhaseOpen} matches={viewMatches} participants={viewParticipants}/>}
+      {tab === "users"   && <UsersTab users={viewUsers} setUsers={setUsers} flash={flash} readOnly={isPreview}/>} 
+      {tab === "groups"  && <GroupsTab matches={viewMatches} realResults={viewResults}/>} 
+      {tab === "phases"  && <PhasesTab phaseOpen={viewPhaseOpen} setPhaseOpen={setPhaseOpen} flash={flash} readOnly={isPreview} matches={viewMatches}/>} 
+      {tab === "results" && <ResultsTab realResults={viewResults} setRealResults={setRealResults} readOnly={isPreview} matches={viewMatches}/>} 
+      {tab === "matrix"  && <MatrixTab realResults={viewResults} participants={viewParticipants} matches={viewMatches}/>} 
+      {tab === "bonus"   && <OfficialBonusTab officialBonus={viewOfficialBonus} setOfficialBonus={setOfficialBonus} flash={flash} readOnly={isPreview}/>} 
+      {tab === "pbonus"  && <ParticipantBonusTab participantBonus={viewParticipantBonus} officialBonus={viewOfficialBonus} participants={viewParticipants}/>} 
 
       {toast && <div className="copied-flash">{toast}</div>}
     </>
@@ -2006,8 +2066,10 @@ function AdminScreen({
 }
 
 // ---------- Resumen / Dashboard ----------
-function SummaryTab({ users, realResults, phaseOpen }) {
-  const { MATCHES, PARTICIPANTS, PHASES } = window.QUINIELA_DATA;
+function SummaryTab({ users, realResults, phaseOpen, matches, participants }) {
+  const { PHASES } = window.QUINIELA_DATA;
+  const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
+  const PARTICIPANTS = participants || window.QUINIELA_DATA.PARTICIPANTS;
   const stats = React.useMemo(() => {
     const participantes = users.length;
     const pagados = users.filter(u => u.paid).length;
@@ -2130,7 +2192,7 @@ function SummaryTab({ users, realResults, phaseOpen }) {
 }
 
 // ---------- Usuarios (fusionada con credenciales y estado de pago) ----------
-function UsersTab({ users, setUsers, flash }) {
+function UsersTab({ users, setUsers, flash, readOnly = false }) {
   const { initials } = window.QUINIELA_DATA;
   const [fullName, setFullName] = React.useState("");
   const [username, setUsername] = React.useState("");
@@ -2162,6 +2224,7 @@ function UsersTab({ users, setUsers, flash }) {
   }
 
   async function submit() {
+    if (readOnly) return;
     const err = validate();
     if (err) { setError(err); return; }
     setError("");
@@ -2190,6 +2253,7 @@ function UsersTab({ users, setUsers, flash }) {
   }
 
   function delUser(id) {
+    if (readOnly) return;
     const u = users.find(x => x.id === id);
     setUsers(users.filter(x => x.id !== id));
     setConfirming(null);
@@ -2197,6 +2261,7 @@ function UsersTab({ users, setUsers, flash }) {
   }
 
   function togglePaid(id) {
+    if (readOnly) return;
     setUsers(users.map(u => u.id === id ? { ...u, paid: !u.paid } : u));
   }
 
@@ -2228,7 +2293,7 @@ function UsersTab({ users, setUsers, flash }) {
 
   return (
     <>
-      <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
+      {!readOnly && <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
         <div className="section-title">Crear usuario</div>
         <div className="card" style={{padding: 14}}>
           {error && (
@@ -2264,7 +2329,7 @@ function UsersTab({ users, setUsers, flash }) {
             La contraseña se genera automáticamente y se envía por email vía Resend.
           </div>
         </div>
-      </div>
+      </div>}
 
       <div className="section" style={{paddingTop: 8, paddingBottom: 4}}>
         <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: 8}}>
@@ -2296,7 +2361,7 @@ function UsersTab({ users, setUsers, flash }) {
                   </div>
                   <div className="user-card-meta">@{u.user} · {u.email}</div>
                 </div>
-                {confirming === u.id ? (
+                {!readOnly && (confirming === u.id ? (
                   <div className="confirm-row">
                     <span className="confirm-text">¿Eliminar?</span>
                     <button className="btn btn-sm btn-secondary" onClick={() => setConfirming(null)}>Cancelar</button>
@@ -2306,7 +2371,7 @@ function UsersTab({ users, setUsers, flash }) {
                   <button className="icon-btn danger" onClick={() => setConfirming(u.id)} title="Eliminar usuario">
                     <Icon.Trash size={15}/>
                   </button>
-                )}
+                ))}
               </div>
               <div className="user-card-body">
                 <div className="user-pass-row">
@@ -2323,6 +2388,7 @@ function UsersTab({ users, setUsers, flash }) {
                 </div>
                 <button
                   className={`paid-toggle ${u.paid ? "on" : "off"}`}
+                  disabled={readOnly}
                   onClick={() => togglePaid(u.id)}
                   title={u.paid ? "Marcar como no pagado" : "Marcar como pagado"}
                 >
@@ -2344,9 +2410,97 @@ function PaidBadge({ paid }) {
     : <span className="tag" style={{marginLeft: 6, padding: "2px 7px", fontSize: 9.5, background: "#FFF1CC", color: "#7A5C0A"}}>Sin pagar</span>;
 }
 
+
+function GroupsTab({ matches, realResults }) {
+  const groupMatches = matches.filter(m => (m.phase || "groups") === "groups" && m.group);
+  const groups = Array.from(new Set(groupMatches.map(m => m.group))).sort();
+  const knockout = (window.QUINIELA_DATA.MATCHES_KO || []);
+
+  return (
+    <>
+      <div className="section" style={{paddingTop: 8, paddingBottom: 4}}>
+        <div className="section-title">Tablas de grupos</div>
+        <div className="groups-grid">
+          {groups.map(group => (
+            <GroupTable key={group} group={group} matches={groupMatches.filter(m => m.group === group)} realResults={realResults}/>
+          ))}
+        </div>
+      </div>
+      <div className="section" style={{paddingTop: 8}}>
+        <div className="section-title">Llaves y siguientes fases</div>
+        <div className="bracket-grid">
+          {["r32", "r16", "qf", "sf", "third", "final"].map(phase => (
+            <div className="bracket-column" key={phase}>
+              <div className="bracket-title">{phaseLabel(phase)}</div>
+              {(knockout.filter(m => m.phase === phase)).map(match => (
+                <div className="bracket-match" key={match.id}>
+                  <div>{match.home || match.homePlaceholder}</div>
+                  <span>vs</span>
+                  <div>{match.away || match.awayPlaceholder}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function GroupTable({ group, matches, realResults }) {
+  const rows = computeGroupStandings(matches, realResults);
+  return (
+    <div className="group-standings card">
+      <div className="group-standings-head">Grupo {group}</div>
+      <table>
+        <thead>
+          <tr><th>País</th><th>Pts</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DF</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(row => (
+            <tr key={row.team}>
+              <td><FlagImg team={row.team} size={18}/><span>{row.team}</span></td>
+              <td>{row.pts}</td><td>{row.pj}</td><td>{row.g}</td><td>{row.e}</td><td>{row.p}</td><td>{row.gf}</td><td>{row.gc}</td><td>{row.df}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function computeGroupStandings(matches, realResults) {
+  const table = {};
+  function ensure(team) {
+    if (!table[team]) table[team] = { team, pts: 0, pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, df: 0 };
+    return table[team];
+  }
+  matches.forEach(m => {
+    ensure(m.home); ensure(m.away);
+    const r = realResults[m.id];
+    if (!r || r.home === "" || r.away === "") return;
+    const home = ensure(m.home), away = ensure(m.away);
+    const hg = +r.home, ag = +r.away;
+    home.pj++; away.pj++;
+    home.gf += hg; home.gc += ag;
+    away.gf += ag; away.gc += hg;
+    home.df = home.gf - home.gc;
+    away.df = away.gf - away.gc;
+    if (hg > ag) { home.g++; home.pts += 3; away.p++; }
+    else if (hg < ag) { away.g++; away.pts += 3; home.p++; }
+    else { home.e++; away.e++; home.pts++; away.pts++; }
+  });
+  return Object.values(table).sort((a, b) => b.pts - a.pts || b.df - a.df || b.gf - a.gf || a.team.localeCompare(b.team));
+}
+
+function phaseLabel(phase) {
+  return ({ r32: "Dieciseisavos", r16: "Octavos", qf: "Cuartos", sf: "Semifinales", third: "3er puesto", final: "Final" })[phase] || phase;
+}
+
 // ---------- Fases ----------
-function PhasesTab({ phaseOpen, setPhaseOpen, flash }) {
-  const { PHASES, MATCHES, matchPhase } = window.QUINIELA_DATA;
+function PhasesTab({ phaseOpen, setPhaseOpen, flash, readOnly = false, matches }) {
+  const { PHASES, matchPhase } = window.QUINIELA_DATA;
+  const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
 
   function toggle(phaseId) {
     const next = !phaseOpen[phaseId];
@@ -2410,8 +2564,9 @@ function PhasesTab({ phaseOpen, setPhaseOpen, flash }) {
 }
 
 // ---------- Resultados ----------
-function ResultsTab({ realResults, setRealResults }) {
-  const { GROUPS, MATCHES, PHASES, matchPhase } = window.QUINIELA_DATA;
+function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) {
+  const { GROUPS, PHASES, matchPhase } = window.QUINIELA_DATA;
+  const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
   const [phaseFilter, setPhaseFilter] = React.useState("groups");
   const [resGroup, setResGroup] = React.useState("A");
 
@@ -2425,6 +2580,7 @@ function ResultsTab({ realResults, setRealResults }) {
   }).length;
 
   function setReal(matchId, side, value) {
+    if (readOnly) return;
     const clean = value.replace(/[^0-9]/g, "").slice(0, 2);
     setRealResults(prev => ({
       ...prev,
@@ -2478,12 +2634,12 @@ function ResultsTab({ realResults, setRealResults }) {
                   <input className={`score-input ${r.home !== "" ? "filled" : ""}`}
                     type="number" inputMode="numeric" min="0"
                     value={r.home} onChange={e => setReal(m.id, "home", e.target.value)}
-                    placeholder="–" disabled={!canEdit || isPlaceholder}/>
+                    placeholder="–" disabled={readOnly || !canEdit || isPlaceholder}/>
                   <span className="score-sep">:</span>
                   <input className={`score-input ${r.away !== "" ? "filled" : ""}`}
                     type="number" inputMode="numeric" min="0"
                     value={r.away} onChange={e => setReal(m.id, "away", e.target.value)}
-                    placeholder="–" disabled={!canEdit || isPlaceholder}/>
+                    placeholder="–" disabled={readOnly || !canEdit || isPlaceholder}/>
                 </div>
                 <div className="match-team away">
                   {isPlaceholder
@@ -2508,8 +2664,10 @@ function ResultsTab({ realResults, setRealResults }) {
 }
 
 // ---------- Matriz por jugador ----------
-function MatrixTab({ realResults }) {
-  const { MATCHES, PARTICIPANTS, PHASES, matchPhase } = window.QUINIELA_DATA;
+function MatrixTab({ realResults, participants, matches: viewMatches }) {
+  const { PHASES, matchPhase } = window.QUINIELA_DATA;
+  const MATCHES = viewMatches || window.QUINIELA_DATA.MATCHES;
+  const PARTICIPANTS = participants || window.QUINIELA_DATA.PARTICIPANTS;
   const [phaseFilter, setPhaseFilter] = React.useState("groups");
   const [groupFilter, setGroupFilter] = React.useState("ALL");
 
@@ -2630,7 +2788,7 @@ function MatrixTab({ realResults }) {
 }
 
 // ---------- Bonus oficiales ----------
-function OfficialBonusTab({ officialBonus, setOfficialBonus, flash }) {
+function OfficialBonusTab({ officialBonus, setOfficialBonus, flash, readOnly = false }) {
   const { ALL_TEAMS, TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS } = window.QUINIELA_DATA;
   const fields = [
     { key: "campeon", label: "Campeón oficial", icon: "Trophy", options: ALL_TEAMS },
@@ -2640,7 +2798,7 @@ function OfficialBonusTab({ officialBonus, setOfficialBonus, flash }) {
     { key: "portero", label: "Mejor Portero", icon: "Glove", options: GOALKEEPERS },
   ];
   const completed = fields.filter(f => officialBonus[f.key]).length;
-  function set(key, val) { setOfficialBonus(prev => ({ ...prev, [key]: val })); }
+  function set(key, val) { if (readOnly) return; setOfficialBonus(prev => ({ ...prev, [key]: val })); }
   async function save() {
     // TODO backend: PUT /api/admin/bonus-results
     flash("Bonus oficiales guardados");
@@ -2673,6 +2831,7 @@ function OfficialBonusTab({ officialBonus, setOfficialBonus, flash }) {
                   <select
                     className="select"
                     value={value}
+                    disabled={readOnly}
                     onChange={e => set(f.key, e.target.value)}
                     style={{height: 38, fontSize: 14, fontWeight: 600, padding: "0 32px 0 0", border: 0, background: "transparent", color: value ? "var(--ink)" : "var(--ink-3)", backgroundPosition: "right 4px center"}}
                   >
@@ -2686,19 +2845,19 @@ function OfficialBonusTab({ officialBonus, setOfficialBonus, flash }) {
         </div>
       </div>
 
-      <div className="save-bar">
+      {!readOnly && <div className="save-bar">
         <button className="btn btn-primary btn-block" onClick={save}>
           <Icon.Check size={18}/>
           Confirmar bonus oficiales
         </button>
-      </div>
+      </div>}
     </>
   );
 }
 
 // ---------- Bonus por participante ----------
-function ParticipantBonusTab({ participantBonus, officialBonus }) {
-  const { PARTICIPANTS } = window.QUINIELA_DATA;
+function ParticipantBonusTab({ participantBonus, officialBonus, participants }) {
+  const PARTICIPANTS = participants || window.QUINIELA_DATA.PARTICIPANTS;
   const fields = [
     { key: "campeon", label: "Campeón", icon: "Trophy" },
     { key: "subcampeon", label: "Subcampeón", icon: "Shield" },
@@ -3085,33 +3244,58 @@ function buildParticipantBonusSeed() {
   return seed;
 }
 
-// Seeds — predictions and real results
+// Live state must not invent match picks or results.
 function buildSeedPredictions() {
-  const seed = {};
-  const M = window.QUINIELA_DATA.MATCHES;
-  M.slice(0, 48).forEach((m, i) => {
-    if (i % 3 === 0) return; // leave some empty so "pendientes" count > 0
-    seed[m.id] = {
-      home: String(Math.floor(Math.random() * 4)),
-      away: String(Math.floor(Math.random() * 3)),
-    };
-  });
-  return seed;
+  return window.QUINIELA_DATA.USER_PREDICTIONS || {};
 }
 function buildSeedReal() {
-  const seed = {};
-  const M = window.QUINIELA_DATA.MATCHES;
-  // Real results filled for matches that have already finished (per demo phase "curso")
-  M.forEach(m => {
-    const now = window.DEMO_PHASES.curso;
-    if (m.kickoffMs + 2 * 3600 * 1000 <= now) {
-      seed[m.id] = {
-        home: String(Math.floor(Math.random() * 4)),
-        away: String(Math.floor(Math.random() * 3)),
-      };
-    }
+  return window.QUINIELA_DATA.MATCH_RESULTS || {};
+}
+
+function makePreviewPredictions(matches, seedOffset = 0) {
+  const predictions = {};
+  matches.forEach((m, i) => {
+    if (i % 7 === 0) return;
+    predictions[m.id] = {
+      home: String((i + seedOffset) % 4),
+      away: String((i * 2 + seedOffset) % 3),
+    };
   });
-  return seed;
+  return predictions;
+}
+
+function makePreviewRealResults(matches) {
+  const results = {};
+  matches.forEach((m, i) => {
+    results[m.id] = {
+      home: String((i + 1) % 4),
+      away: String((i * 2 + 1) % 3),
+    };
+  });
+  return results;
+}
+
+function makePreviewParticipants(matches) {
+  const base = window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW || window.QUINIELA_DATA.PARTICIPANTS || [];
+  return base.map((p, i) => ({
+    ...p,
+    predictions: makePreviewPredictions(matches, i + 1),
+  }));
+}
+
+function makePreviewParticipantBonus(participants) {
+  const { ALL_TEAMS, TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS } = window.QUINIELA_DATA;
+  const picks = {};
+  participants.forEach((p, i) => {
+    picks[p.user] = {
+      campeon: ALL_TEAMS[(i + 1) % ALL_TEAMS.length],
+      subcampeon: ALL_TEAMS[(i + 4) % ALL_TEAMS.length],
+      goleador: TOP_SCORERS[i % TOP_SCORERS.length],
+      mvp: MVP_CANDIDATES[(i + 2) % MVP_CANDIDATES.length],
+      portero: GOALKEEPERS[(i + 3) % GOALKEEPERS.length],
+    };
+  });
+  return picks;
 }
 
 
@@ -3146,6 +3330,9 @@ function mapMatchFromApi(match) {
 
 function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
   if (!window.QUINIELA_DATA) return;
+  if (!window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW) {
+    window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW = window.QUINIELA_DATA.PARTICIPANTS;
+  }
   if (matches.length) {
     const mappedMatches = matches.map(mapMatchFromApi);
     window.QUINIELA_DATA.MATCHES = mappedMatches;
