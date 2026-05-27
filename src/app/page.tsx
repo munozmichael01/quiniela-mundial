@@ -1,5 +1,5 @@
-import QuinielaApp from "./QuinielaApp";
+import ClientOnlyQuiniela from "./ClientOnlyQuiniela";
 
 export default function Home() {
-  return <QuinielaApp />;
+  return <ClientOnlyQuiniela />;
 }
