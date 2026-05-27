@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Dispatch, FormEvent, SetStateAction, useEffect, useMemo, useState } from "react";
 
 type Role = "admin" | "user";
 
@@ -48,6 +48,23 @@ type LeaderboardEntry = {
   exactos: number;
   completados: number;
   posicion: number;
+};
+
+type AdminStats = {
+  totalParticipantes: number;
+  totalPronosticos: number;
+  partidosJugados: number;
+  partidosPendientes: number;
+  puntosPromedio: number;
+  lider: { nombre: string; alias: string; puntos: number } | null;
+  proximoPartido: {
+    id: number;
+    home: string;
+    away: string;
+    home_flag: string | null;
+    away_flag: string | null;
+    date: string;
+  } | null;
 };
 
 const emptyBonus: Bonus = {
@@ -617,8 +634,11 @@ function ProfileScreen({ user, onLogout }: { user: UserProfile; onLogout: () => 
 }
 
 function AdminScreen() {
+  const [tab, setTab] = useState<"summary" | "users" | "phases" | "results" | "matrix" | "bonus" | "pbonus">("summary");
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [stats, setStats] = useState<Record<string, number | string | null | object>>({});
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [bonusResults, setBonusResults] = useState<Bonus>(emptyBonus);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ nombre: "", alias: "", email: "" });
@@ -626,14 +646,18 @@ function AdminScreen() {
   async function refresh() {
     setMessage("");
     try {
-      const [usersData, statsData, bonusData] = await Promise.all([
+      const [usersData, statsData, bonusData, matchesData, leaderboardData] = await Promise.all([
         api<{ users: UserProfile[] }>("/api/admin/users"),
-        api<Record<string, number | string | null | object>>("/api/admin/stats"),
+        api<AdminStats>("/api/admin/stats"),
         api<{ bonus_results: Bonus | null }>("/api/admin/bonus-results"),
+        api<{ matches: Match[] }>("/api/matches"),
+        api<{ leaderboard: LeaderboardEntry[] }>("/api/leaderboard"),
       ]);
       setUsers(usersData.users);
       setStats(statsData);
       setBonusResults(bonusData.bonus_results ?? emptyBonus);
+      setMatches(matchesData.matches);
+      setLeaderboard(leaderboardData.leaderboard);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "No se pudo cargar el panel admin");
     }
@@ -673,61 +697,323 @@ function AdminScreen() {
 
   return (
     <>
-      <Topbar title="Panel Admin" subtitle="Usuarios, stats y bonus" badge={`${users.length} usuarios`} />
-      {message && <div className="section"><div className="notice">{message}</div></div>}
-      <section className="section stat-row">
-        <Stat label="Participantes" value={String(stats.totalParticipantes ?? 0)} />
-        <Stat label="Pronósticos" value={String(stats.totalPronosticos ?? 0)} />
-      </section>
-      <section className="section">
-        <h2 className="section-title">Crear usuario</h2>
-        <form className="card admin-form" onSubmit={createUser}>
-          <input className="input" placeholder="Nombre" value={form.nombre} onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))} />
-          <input className="input" placeholder="Alias" value={form.alias} onChange={(event) => setForm((current) => ({ ...current, alias: event.target.value }))} />
-          <input className="input" type="email" placeholder="Email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
-          <button className="btn btn-primary btn-block" type="submit">Crear y enviar acceso</button>
-        </form>
-      </section>
-      <section className="section">
-        <h2 className="section-title">Usuarios</h2>
-        <div className="card compact-list">
-          {users.map((user) => (
-            <div className="user-row" key={user.id}>
-              <span className="avatar">{initials(user.nombre)}</span>
-              <div>
-                <strong>{user.nombre}</strong>
-                <small>@{user.alias} · {user.role}</small>
-              </div>
-            </div>
+      <Topbar title="Panel admin" subtitle="Gestión de la quiniela" badge="ADMIN" />
+      <section className="section admin-tabs-section">
+        <div className="pill-tabs admin-pill-tabs">
+          {[
+            ["summary", "Resumen"],
+            ["users", "Usuarios"],
+            ["phases", "Fases"],
+            ["results", "Resultados"],
+            ["matrix", "Por jugador"],
+            ["bonus", "Bonus oficiales"],
+            ["pbonus", "Bonus jugadores"],
+          ].map(([id, label]) => (
+            <button
+              className={`pill-tab ${tab === id ? "active" : ""}`}
+              key={id}
+              onClick={() => setTab(id as typeof tab)}
+              type="button"
+            >
+              {label}
+            </button>
           ))}
         </div>
       </section>
-      <section className="section admin-last">
-        <h2 className="section-title">Resultados bonus</h2>
-        <div className="card admin-form">
-          {(Object.keys(emptyBonus) as Array<keyof Bonus>).map((key) => (
-            <input
-              className="input"
-              key={key}
-              placeholder={key}
-              value={bonusResults[key] ?? ""}
-              onChange={(event) => setBonusResults((current) => ({ ...current, [key]: event.target.value || null }))}
-            />
+      {message && <div className="section"><div className="notice">{message}</div></div>}
+
+      {tab === "summary" && <AdminSummary stats={stats} users={users} matches={matches} />}
+      {tab === "users" && (
+        <AdminUsers users={users} form={form} setForm={setForm} createUser={createUser} />
+      )}
+      {tab === "phases" && <AdminPhases matches={matches} />}
+      {tab === "results" && <AdminResults matches={matches} />}
+      {tab === "matrix" && <AdminMatrix leaderboard={leaderboard} />}
+      {tab === "bonus" && (
+        <AdminBonusOfficial bonusResults={bonusResults} setBonusResults={setBonusResults} saveBonusResults={saveBonusResults} />
+      )}
+      {tab === "pbonus" && <AdminBonusPlayers />}
+    </>
+  );
+}
+
+function AdminSummary({ stats, users, matches }: { stats: AdminStats | null; users: UserProfile[]; matches: Match[] }) {
+  const totalMatches = (stats?.partidosJugados ?? 0) + (stats?.partidosPendientes ?? 0);
+  const paidCount = users.filter((user) => user.role === "user").length;
+  const nextMatch = stats?.proximoPartido ?? matches.find((match) => new Date(match.date) > new Date()) ?? null;
+
+  return (
+    <>
+      <section className="section">
+        <h2 className="section-title">Estado del torneo</h2>
+        <div className="dash-grid">
+          <DashboardCard icon="users" label="Participantes" value={String(stats?.totalParticipantes ?? 0)} sub={`${paidCount} registrados`} />
+          <DashboardCard icon="check" label="Jugados" value={String(stats?.partidosJugados ?? 0)} suffix={`/ ${totalMatches || 0}`} sub={`${stats?.partidosPendientes ?? 0} pendientes`} />
+          <DashboardCard icon="list" label="Pronósticos" value={String(stats?.totalPronosticos ?? 0)} sub="marcadores registrados" />
+          <DashboardCard icon="bar" label="Promedio" value={String(stats?.puntosPromedio ?? 0)} suffix="pts" sub="por participante" />
+          <DashboardCard icon="lock" label="Fases abiertas" value="1" suffix="/ 7" sub="disponibles para pronosticar" />
+          <DashboardCard icon="star" label="Recaudado" value={`$${paidCount * 10}`} sub={`${paidCount}× $10 · meta $${Math.max(paidCount, stats?.totalParticipantes ?? 0) * 10}`} />
+        </div>
+      </section>
+
+      {stats?.lider && (
+        <section className="section section-tight">
+          <h2 className="section-title">Líder</h2>
+          <div className="dash-highlight">
+            <div className="dash-icon-lg"><AdminIcon name="trophy" /></div>
+            <div>
+              <div className="dash-h-label">Va primero con</div>
+              <div className="dash-h-title">{stats.lider.nombre}</div>
+              <div className="dash-h-sub">{stats.lider.puntos} pts · @{stats.lider.alias}</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {nextMatch && (
+        <section className="section section-tight">
+          <h2 className="section-title">Próximo partido</h2>
+          <div className="dash-highlight">
+            <div className="dash-icon-lg soft"><AdminIcon name="clock" /></div>
+            <div>
+              <div className="dash-h-label">{formatDate(nextMatch.date)}</div>
+              <div className="dash-h-title next-match-title">
+                <Flag code={nextMatch.home_flag} label={nextMatch.home} />
+                {nextMatch.home}
+                <span>vs</span>
+                <Flag code={nextMatch.away_flag} label={nextMatch.away} />
+                {nextMatch.away}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+function DashboardCard({ icon, label, value, suffix, sub }: { icon: string; label: string; value: string; suffix?: string; sub: string }) {
+  return (
+    <div className="dash-card">
+      <div className="dash-card-head">
+        <span className="dash-icon"><AdminIcon name={icon} /></span>
+        {label}
+      </div>
+      <div className="dash-value">{value}{suffix && <small>{suffix}</small>}</div>
+      <div className="dash-sub">{sub}</div>
+    </div>
+  );
+}
+
+function AdminUsers({
+  users,
+  form,
+  setForm,
+  createUser,
+}: {
+  users: UserProfile[];
+  form: { nombre: string; alias: string; email: string };
+  setForm: Dispatch<SetStateAction<{ nombre: string; alias: string; email: string }>>;
+  createUser: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+}) {
+  return (
+    <>
+      <section className="section">
+        <h2 className="section-title">Crear usuario</h2>
+        <form className="card admin-create-card" onSubmit={createUser}>
+          <label className="field">
+            <span>Nombre completo</span>
+            <input className="input" placeholder="Ana García" value={form.nombre} onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))} />
+          </label>
+          <label className="field">
+            <span>Alias</span>
+            <input className="input" placeholder="ana_garcia" value={form.alias} onChange={(event) => setForm((current) => ({ ...current, alias: event.target.value }))} />
+          </label>
+          <label className="field">
+            <span>Email</span>
+            <input className="input" type="email" placeholder="ana@email.com" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+          </label>
+          <button className="btn btn-primary btn-block" type="submit">Crear usuario y enviar contraseña</button>
+        </form>
+      </section>
+      <section className="section section-tight">
+        <div className="admin-list-head">
+          <h2 className="section-title">Participantes · {users.length}</h2>
+        </div>
+        <div className="card">
+          {users.map((user) => (
+            <div className="user-card" key={user.id}>
+              <div className="user-card-head">
+                <div className="user-avatar">{initials(user.nombre)}</div>
+                <div className="user-card-info">
+                  <div className="user-card-name">{user.nombre}<span className="tag mini">{user.role}</span></div>
+                  <div className="user-card-meta">@{user.alias} · {user.email}</div>
+                </div>
+              </div>
+            </div>
           ))}
-          <button className="btn btn-secondary btn-block" type="button" onClick={saveBonusResults}>Guardar resultados bonus</button>
         </div>
       </section>
     </>
   );
 }
 
+function AdminPhases({ matches }: { matches: Match[] }) {
+  const groups = Array.from(new Set(matches.map((match) => match.group))).sort();
+  return (
+    <section className="section">
+      <div className="notice">Las fases de eliminatoria todavía dependen de que el fixture oficial esté disponible. Grupos queda abierto para pronósticos.</div>
+      <div className="card phase-card">
+        {["groups", "r32", "r16", "qf", "sf", "third", "final"].map((phase, index) => (
+          <div className="phase-row" key={phase}>
+            <div className="phase-row-icon"><AdminIcon name={index === 0 ? "check" : "lock"} /></div>
+            <div className="phase-row-info">
+              <div className="phase-row-title">{["Grupos", "Dieciseisavos", "Octavos", "Cuartos", "Semifinales", "3er puesto", "Final"][index]}</div>
+              <div className="phase-row-sub">{index === 0 ? `${groups.length} grupos · ${matches.length} partidos` : "Pendiente de cruces oficiales"}</div>
+            </div>
+            <button className={`paid-toggle ${index === 0 ? "on" : "off"}`} type="button">
+              <span className="paid-toggle-knob" />
+              <span className="paid-toggle-label">{index === 0 ? "Abierta" : "Cerrada"}</span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminResults({ matches }: { matches: Match[] }) {
+  return (
+    <section className="section">
+      <h2 className="section-title">Resultados</h2>
+      <div className="card admin-results-list">
+        {matches.map((match) => {
+          const result = match.results?.[0];
+          return (
+            <div className="match-row" key={match.id}>
+              <div className="match-team home"><Flag code={match.home_flag} label={match.home} /><span className="name">{match.home}</span></div>
+              <div className="match-score readonly-score">{result ? `${result.home_score}:${result.away_score}` : "–:–"}</div>
+              <div className="match-team away"><span className="name">{match.away}</span><Flag code={match.away_flag} label={match.away} /></div>
+              <div className="match-meta">{formatDate(match.date)} · {result ? "Cargado" : "Pendiente"}</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function AdminMatrix({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
+  return (
+    <section className="section">
+      <div className="legend">
+        <span className="legend-item"><span className="legend-dot cell-exacto" />Exactos</span>
+        <span className="legend-item"><span className="legend-dot cell-parcial" />Puntos</span>
+      </div>
+      <div className="matrix-wrap">
+        <div className="matrix-scroll">
+          <table className="matrix-table">
+            <thead>
+              <tr>
+                <th className="head-player">Participante</th>
+                <th>Puntos</th>
+                <th>Exactos</th>
+                <th>Completos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leaderboard.map((row) => (
+                <tr key={row.user_id}>
+                  <td className="cell-player">
+                    <div className="cell-player-inner">
+                      <div className="user-avatar small">{initials(row.nombre)}</div>
+                      <div>
+                        <div className="pname">{row.nombre}</div>
+                        <div className="ppts">@{row.alias}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="matrix-cell"><div className="cell-inner cell-parcial">{row.puntos}</div></td>
+                  <td className="matrix-cell"><div className="cell-inner cell-exacto">{row.exactos}</div></td>
+                  <td className="matrix-cell"><div className="cell-inner cell-pending">{row.completados}</div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AdminBonusOfficial({
+  bonusResults,
+  setBonusResults,
+  saveBonusResults,
+}: {
+  bonusResults: Bonus;
+  setBonusResults: Dispatch<SetStateAction<Bonus>>;
+  saveBonusResults: () => Promise<void>;
+}) {
+  return (
+    <>
+      <section className="section">
+        <div className="notice">Confirma los bonus oficiales al terminar el torneo. Se sumarán automáticamente al ranking.</div>
+      </section>
+      <section className="section section-tight">
+        <h2 className="section-title">Resultados oficiales</h2>
+        <div className="bonus-grid">
+          {(Object.keys(emptyBonus) as Array<keyof Bonus>).map((key) => (
+            <label className="bonus-card" key={key}>
+              <div className="bonus-icon"><AdminIcon name="star" /></div>
+              <div className="bonus-body">
+                <div className="bonus-label">{key}</div>
+                <input
+                  className="input ghost-input"
+                  value={bonusResults[key] ?? ""}
+                  onChange={(event) => setBonusResults((current) => ({ ...current, [key]: event.target.value || null }))}
+                />
+              </div>
+            </label>
+          ))}
+        </div>
+        <div className="save-bar static-save">
+          <button className="btn btn-primary btn-block" type="button" onClick={saveBonusResults}>Confirmar bonus oficiales</button>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function AdminBonusPlayers() {
+  return (
+    <section className="section">
+      <div className="notice">La vista de bonus por jugador necesita leer todos los bonus de participantes desde un endpoint admin. La pestaña queda reservada con el diseño original.</div>
+    </section>
+  );
+}
+
+function AdminIcon({ name }: { name: string }) {
+  const glyphs: Record<string, string> = {
+    users: "U",
+    check: "✓",
+    list: "☷",
+    bar: "▥",
+    lock: "▣",
+    star: "☆",
+    trophy: "T",
+    clock: "◷",
+  };
+  return <span className="admin-icon-glyph" aria-hidden>{glyphs[name] ?? "•"}</span>;
+}
+
 function Topbar({ title, subtitle, badge }: { title: string; subtitle: string; badge?: string }) {
   return (
     <header className="topbar">
-      <div className="brand-mark small">Q26</div>
+      <div className="topbar-logo">Q26</div>
       <div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
+        <div className="topbar-title">{title}</div>
+        <div className="topbar-sub">{subtitle}</div>
       </div>
       {badge && <span className="tag">{badge}</span>}
     </header>
