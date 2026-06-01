@@ -508,9 +508,9 @@ input, select, textarea { font-family: inherit; }
 .matrix-table thead th.head-player {
   left: 0; z-index: 4;
   text-align: left;
-  padding: 8px 14px;
-  min-width: 200px;
-  width: 200px;
+  padding: 8px 10px;
+  min-width: 130px;
+  width: 130px;
   border-right: 1px solid var(--border);
   font-size: 9.5px;
   font-weight: 700;
@@ -549,9 +549,9 @@ input, select, textarea { font-family: inherit; }
   background: var(--surface);
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding: 8px 14px;
-  min-width: 200px;
-  width: 200px;
+  padding: 8px 10px;
+  min-width: 130px;
+  width: 130px;
 }
 .cell-player-inner {
   display: flex;
@@ -567,17 +567,21 @@ input, select, textarea { font-family: inherit; }
 .matrix-table tbody tr.me td.cell-player .pname { color: var(--primary-dark); }
 .matrix-table tbody td.cell-player .pname {
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 11.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.005em;
+  max-width: 80px;
 }
 .matrix-table tbody td.cell-player .ppts {
-  font-size: 10.5px;
+  font-size: 9.5px;
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
   margin-top: 1px;
 }
 .matrix-table tbody td.matrix-cell {
@@ -1565,6 +1569,16 @@ input, select, textarea { font-family: inherit; }
   }
   .cw-name-main { font-size: 13.5px; }
   .cw-pts { font-size: 15px; }
+
+  /* Matrix player column: wider on desktop */
+  .matrix-table thead th.head-player,
+  .matrix-table tbody td.cell-player {
+    min-width: 180px;
+    width: 180px;
+    padding: 8px 14px;
+  }
+  .matrix-table tbody td.cell-player .pname { font-size: 12.5px; max-width: 120px; }
+  .matrix-table tbody td.cell-player .ppts  { font-size: 10.5px; max-width: 120px; }
 
   /* Save bar: align button to the right, max-width like content */
   .save-bar {

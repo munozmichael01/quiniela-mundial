@@ -440,18 +440,20 @@ const Icon = {
   ),
 };
 
-// Flag image — flagcdn.com with hi-DPI srcset
+// Flag image — flagcdn.com w{width} format (soporta 20, 40, 80, 160…)
 function FlagImg({ team, size = 24 }) {
   const code = (window.QUINIELA_DATA?.FLAG_CODES || {})[team];
   const h = Math.round(size * 0.75);
+  // Snap to the nearest supported width bucket
+  const w = size <= 20 ? 20 : size <= 40 ? 40 : 80;
   if (!code) {
     return <span className="flag-img flag-fallback" style={{width: size, height: h}}/>;
   }
   return (
     <img
       className="flag-img"
-      src={`https://flagcdn.com/${size}x${h}/${code}.png`}
-      srcSet={`https://flagcdn.com/${size*2}x${h*2}/${code}.png 2x, https://flagcdn.com/${size*3}x${h*3}/${code}.png 3x`}
+      src={`https://flagcdn.com/w${w}/${code}.png`}
+      srcSet={`https://flagcdn.com/w${w * 2}/${code}.png 2x`}
       width={size}
       height={h}
       alt={team}
