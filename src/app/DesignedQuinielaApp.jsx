@@ -2261,10 +2261,10 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
           </div>
           <button className="btn btn-primary btn-block" onClick={submit} disabled={sending}>
             <Icon.Plus size={16}/>
-            {sending ? "Enviando contraseña…" : "Crear usuario y enviar contraseña"}
+            {sending ? "Creando usuario…" : "Crear usuario"}
           </button>
           <div className="muted-2" style={{fontSize: 11, marginTop: 10, textAlign: "center", lineHeight: 1.5}}>
-            La contraseña se genera automáticamente y se envía por email vía Resend.
+            La contraseña se genera automáticamente. Cópiala y compártela por WhatsApp.
           </div>
         </div>
       </div>}
@@ -2972,7 +2972,7 @@ function DesignedOriginalApp() {
     return initial;
   });
   const [users, setUsers] = React.useState(() =>
-    window.QUINIELA_DATA.MOCK_USERS.map((u, i) => ({ ...u, paid: i % 3 !== 0 }))
+    window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u }))
   );
 
   // Pending predictions count (upcoming matches without a prediction)
@@ -3310,24 +3310,19 @@ function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
   }
 
   if (users.length) {
-    window.QUINIELA_DATA.MOCK_USERS = users.map((user, index) => ({
-      id: index + 1,
-      uuid: user.id,
-      user: user.alias,
-      name: user.nombre,
-      email: user.email,
-      pass: "********",
-      paid: user.paid ?? false,
-      initials: toInitials(user.nombre),
-    }));
-    // Si hay usuarios reales (excluyendo solo-admin), úsalos como base del preview
-    const realUsers = window.QUINIELA_DATA.MOCK_USERS.filter(u => u.user !== "admin");
-    if (realUsers.length > 0) {
-      window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW = realUsers.map(u => ({
-        name: u.name, user: u.user, email: u.email, initials: u.initials,
+    window.QUINIELA_DATA.MOCK_USERS = users
+      .filter(user => user.role !== "admin")
+      .map((user, index) => ({
+        id: index + 1,
+        uuid: user.id,
+        user: user.alias,
+        name: user.nombre,
+        email: user.email,
+        pass: "********",
+        paid: user.paid ?? false,
+        initials: toInitials(user.nombre),
       }));
-    }
-    // Si no hay usuarios reales aún, PREVIEW_PARTICIPANTS_RAW mantiene los datos de prueba
+    // Preview siempre usa participantes ficticios — no se toca PREVIEW_PARTICIPANTS_RAW
   }
 }
 
