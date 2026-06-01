@@ -215,7 +215,7 @@ const BONUS_DEADLINE_MS = Date.UTC(2026, 5, 11, 13, 0, 0);
 window.BONUS_DEADLINE_MS = BONUS_DEADLINE_MS;
 window.BONUS_DEADLINE_LABEL = "11 de junio, 13:00 UTC";
 
-let _nowOverride = DEMO_PHASES.curso; // default demo phase
+let _nowOverride = null; // null = use real time
 window.setSimNow = (ms) => { _nowOverride = ms; };
 window.getNow = () => _nowOverride != null ? _nowOverride : Date.now();
 
@@ -3074,7 +3074,7 @@ window.AdminScreen = AdminScreen;
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "primary": "#1D9E75",
   "font": "manrope",
-  "demoPhase": "curso"
+  "demoPhase": "real"
 }/*EDITMODE-END*/;
 
 const FONTS = {
@@ -3102,9 +3102,9 @@ function DesignedOriginalApp() {
   // Apply simulated "now" for demo phases
   const [, setNowTick] = React.useState(0);
   React.useEffect(() => {
-    const ph = window.DEMO_PHASES[tweaks.demoPhase];
+    const ph = tweaks.demoPhase === "real" ? null : window.DEMO_PHASES[tweaks.demoPhase];
     window.setSimNow(ph);
-    setNowTick(t => t + 1); // force re-render of children that read getNow()
+    setNowTick(t => t + 1);
   }, [tweaks.demoPhase]);
 
   const [user, setUser] = React.useState(null);
@@ -3304,7 +3304,7 @@ function OriginalTweaksPanelUI({ tweaks, setTweak }) {
         label="Estado"
         value={tweaks.demoPhase}
         onChange={(v) => setTweak("demoPhase", v)}
-        options={["pre", "curso", "post"]}
+        options={["real", "pre", "curso", "post"]}
       />
       <TweakSection label="Tema"/>
       <TweakColor
