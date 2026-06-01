@@ -17,7 +17,7 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error: dbError } = await supabase
     .from("users")
-    .select("id, nombre, alias, role, email, paid, created_at")
+    .select("id, nombre, alias, role, email, paid, password, created_at")
     .order("created_at", { ascending: true });
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
@@ -62,13 +62,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
-  // Create profile
+  // Create profile (guardamos la contraseña para que el admin pueda verla siempre)
   const { error: profileError } = await supabase.from("users").insert({
     id: authData.user.id,
     nombre,
     alias,
     email,
     role: "user",
+    password,
   });
 
   if (profileError) {

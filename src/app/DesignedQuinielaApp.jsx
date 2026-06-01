@@ -2314,10 +2314,7 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
       const refreshed = await api("/api/admin/users");
       if (refreshed.users) {
         applyBackendData({ users: refreshed.users });
-        // Preservar contraseña real en estado (backend devuelve "********")
-        setUsers(window.QUINIELA_DATA.MOCK_USERS.map(u =>
-          u.user === newAlias ? { ...u, pass: res.password } : u
-        ));
+        setUsers(window.QUINIELA_DATA.MOCK_USERS);
       }
       setFullName(""); setUsername(""); setEmail("");
       flash(`✓ Usuario creado · Contraseña: ${res.password}`);
@@ -3491,7 +3488,7 @@ function applyBackendData({ matches = [], leaderboard = [], users = [], phases =
         user: user.alias,
         name: user.nombre,
         email: user.email,
-        pass: "********",
+        pass: user.password || "—",
         paid: user.paid ?? false,
         initials: toInitials(user.nombre),
       }));

@@ -14,6 +14,7 @@ export interface Database {
           role: Role;
           email: string;
           paid: boolean;
+          password: string | null;
           created_at: string;
         };
         Insert: {
@@ -23,6 +24,7 @@ export interface Database {
           role?: Role;
           email: string;
           paid?: boolean;
+          password?: string | null;
           created_at?: string;
         };
         Update: {
@@ -32,6 +34,7 @@ export interface Database {
           role?: Role;
           email?: string;
           paid?: boolean;
+          password?: string | null;
           created_at?: string;
         };
         Relationships: NoRelationships;
