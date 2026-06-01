@@ -3337,7 +3337,11 @@ async function api(path, init) {
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "No se pudo completar la acción");
+  if (!res.ok) {
+    const err = data.error;
+    const msg = typeof err === "string" ? err : Object.values(err || {}).flat().join(" · ") || "No se pudo completar la acción";
+    throw new Error(msg);
+  }
   return data;
 }
 
