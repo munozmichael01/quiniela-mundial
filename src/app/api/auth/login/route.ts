@@ -26,8 +26,11 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (profileError || !profile) {
+    console.error("[login] alias lookup failed:", alias, profileError?.message);
     return NextResponse.json({ error: "Alias o contraseña incorrectos" }, { status: 401 });
   }
+
+  console.log("[login] alias found, email:", profile.email);
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -36,7 +39,8 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
-    return NextResponse.json({ error: "Alias o contraseña incorrectos" }, { status: 401 });
+    console.error("[login] signInWithPassword failed:", error.message, error.status);
+    return NextResponse.json({ error: "Alias o contraseña incorrectos", detail: error.message }, { status: 401 });
   }
 
   return NextResponse.json({ user: data.user, session: data.session });
