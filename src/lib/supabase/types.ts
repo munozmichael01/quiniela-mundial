@@ -13,6 +13,7 @@ export interface Database {
           alias: string;
           role: Role;
           email: string;
+          paid: boolean;
           created_at: string;
         };
         Insert: {
@@ -21,6 +22,7 @@ export interface Database {
           alias: string;
           role?: Role;
           email: string;
+          paid?: boolean;
           created_at?: string;
         };
         Update: {
@@ -29,6 +31,7 @@ export interface Database {
           alias?: string;
           role?: Role;
           email?: string;
+          paid?: boolean;
           created_at?: string;
         };
         Relationships: NoRelationships;
