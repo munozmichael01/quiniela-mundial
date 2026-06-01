@@ -120,8 +120,8 @@ function buildKnockout() {
       m.kickoffMs = Date.UTC(2026, month, day, hour, 0, 0);
       m.kickoffISO = new Date(m.kickoffMs).toISOString();
       const d = new Date(m.kickoffMs);
-      m.date = `${d.getUTCDate()} ${monthsEs[d.getUTCMonth()]}`;
-      m.time = `${String(hour).padStart(2,"0")}:00`;
+      m.date = `${d.getDate()} ${monthsEs[d.getMonth()]}`;
+      m.time = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
     });
   });
   return all;
@@ -255,7 +255,7 @@ window.formatRelative = (iso) => {
   }
   const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   const date = new Date(iso);
-  return `${date.getUTCDate()} ${months[date.getUTCMonth()]}`;
+  return `${date.getDate()} ${months[date.getMonth()]}`;
 };
 
 // Scoring: exacto = 3, parcial (acierta diferencia de goles) = 2, signo (gana/empata) = 1
@@ -1857,6 +1857,134 @@ function BonusScreen({ bonus, setBonus }) {
 window.BonusScreen = BonusScreen;
 
 
+// Admin: tabla de clasificación (misma lógica que LeaderboardScreen, sin isMe)
+function AdminLeaderboardTab({ participants, matches, realResults }) {
+  const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
+  const [sortBy, setSortBy] = React.useState("pts");
+
+  const enriched = React.useMemo(() => {
+    return participants.map(p => {
+      const stats = window.aggregateStats(p.predictions, realResults);
+      return { ...p, ...stats };
+    });
+  }, [participants, realResults]);
+
+  const sorted = React.useMemo(() => {
+    const arr = [...enriched];
+    const cmp = {
+      pts:         (a,b) => b.pts - a.pts || b.exactos - a.exactos,
+      exactos:     (a,b) => b.exactos - a.exactos || b.pts - a.pts,
+      parciales:   (a,b) => b.parciales - a.parciales || b.pts - a.pts,
+      completados: (a,b) => b.completados - a.completados || b.pts - a.pts,
+    };
+    arr.sort(cmp[sortBy] || cmp.pts);
+    return arr;
+  }, [enriched, sortBy]);
+
+  const leader = sorted[0];
+
+  return (
+    <>
+      {leader && (
+        <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
+          <div className="card" style={{padding: "14px 16px", display:"flex", alignItems:"center", gap: 12}}>
+            <div style={{width:44,height:44,borderRadius:11,background:"var(--primary)",color:"white",display:"grid",placeItems:"center",flexShrink:0}}>
+              <Icon.Trophy size={20}/>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div className="muted-2" style={{fontSize:10.5,letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}}>Líder actual</div>
+              <div style={{fontWeight:800,fontSize:16,marginTop:2}}>{leader.name}</div>
+              <div className="muted-2" style={{marginTop:2}}>{leader.pts} pts · {leader.exactos} exactos · {leader.parciales} parciales</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="section" style={{paddingTop: 4, paddingBottom: 8}}>
+        <div className="pill-tabs" style={{display:"flex",overflowX:"auto",maxWidth:"100%"}}>
+          <button className={`pill-tab ${sortBy==="pts"?"active":""}`} onClick={() => setSortBy("pts")}>Puntos</button>
+          <button className={`pill-tab ${sortBy==="exactos"?"active":""}`} onClick={() => setSortBy("exactos")}>Exactos</button>
+          <button className={`pill-tab ${sortBy==="parciales"?"active":""}`} onClick={() => setSortBy("parciales")}>Parciales</button>
+          <button className={`pill-tab ${sortBy==="completados"?"active":""}`} onClick={() => setSortBy("completados")}>Completos</button>
+        </div>
+      </div>
+
+      <div className="section" style={{paddingTop: 8}}>
+        <div className="lb-wide">
+          <div className="lb-wide-head">
+            <div className="cw-pos">Pos</div>
+            <div className="cw-name">Participante</div>
+            <div className="cw-pts">Pts</div>
+            <div className="cw-stat">Ex</div>
+            <div className="cw-stat">Pc</div>
+            <div className="cw-stat">Sg</div>
+            <div className="cw-comp">Comp</div>
+          </div>
+          {sorted.map((p, i) => (
+            <div key={p.user} className="lb-wide-row">
+              <div className="cw-pos">
+                <span className={`pos-chip ${i < 3 ? `top-${i+1}` : ""}`}>{i+1}</span>
+              </div>
+              <div className="cw-name">
+                <div className="user-avatar small">{p.initials}</div>
+                <div className="cw-name-text">
+                  <div className="cw-name-main">{p.name}</div>
+                  <div className="cw-name-sub">@{p.user}</div>
+                </div>
+              </div>
+              <div className="cw-pts">{p.pts}</div>
+              <div className="cw-stat ex">{p.exactos}</div>
+              <div className="cw-stat pc">{p.parciales}</div>
+              <div className="cw-stat sg">{p.signos}</div>
+              <div className="cw-comp">{p.completados}/{MATCHES.length}</div>
+            </div>
+          ))}
+        </div>
+        {enriched.length === 0 && (
+          <div className="empty"><div className="empty-icon"><Icon.Rank size={24}/></div><div className="empty-title">Sin participantes aún</div></div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// Admin Full Preview: vista como participante
+function PreviewUserView({ matches, participants, realResults, phaseOpen, participantBonus, officialBonus }) {
+  const [tab, setTab] = React.useState("predictions");
+  const fakeUser = participants[0] || { name: "Participante", user: "usuario", initials: "P1" };
+  const fakePredictions = fakeUser.predictions || {};
+
+  return (
+    <>
+      <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
+        <div className="pill-tabs" style={{display:"flex", overflowX:"auto"}}>
+          <button className={`pill-tab ${tab==="predictions"?"active":""}`} onClick={() => setTab("predictions")}>Pronósticos</button>
+          <button className={`pill-tab ${tab==="leaderboard"?"active":""}`} onClick={() => setTab("leaderboard")}>Tabla</button>
+          <button className={`pill-tab ${tab==="bonus"?"active":""}`} onClick={() => setTab("bonus")}>Bonus</button>
+        </div>
+      </div>
+      <div className="muted-2" style={{textAlign:"center", fontSize:11, padding:"0 16px 8px"}}>
+        Vista como: <strong>{fakeUser.name}</strong>
+      </div>
+      {tab === "predictions" && (
+        <PredictionsScreen
+          predictions={fakePredictions}
+          setPredictions={() => {}}
+          realResults={realResults}
+          phaseOpen={phaseOpen}
+        />
+      )}
+      {tab === "leaderboard" && (
+        <LeaderboardScreen currentUser={fakeUser} realResults={realResults}/>
+      )}
+      {tab === "bonus" && (
+        <BonusScreen bonus={participantBonus[fakeUser.user] || {}} setBonus={() => {}}/>
+      )}
+    </>
+  );
+}
+
+
 // Admin panel: resumen, usuarios (con credenciales+pago), resultados, fases, matriz, bonus
 
 function AdminScreen({
@@ -1911,15 +2039,17 @@ function AdminScreen({
   const viewParticipantBonus = isPreview ? previewParticipantBonus : participantBonus;
   const viewPhaseOpen = isPreview ? previewPhaseOpen : phaseOpen;
 
+  const [previewAs, setPreviewAs] = React.useState("admin"); // "admin" | "user"
+
   const tabs = [
-    { id: "summary",   label: "Resumen" },
-    { id: "users",     label: "Usuarios" },
-    { id: "groups",    label: "Grupos" },
-    { id: "phases",    label: "Fases" },
-    { id: "results",   label: "Resultados" },
-    { id: "matrix",    label: "Por jugador" },
-    { id: "bonus",     label: "Bonus oficiales" },
-    { id: "pbonus",    label: "Bonus jugadores" },
+    { id: "summary",     label: "Resumen" },
+    { id: "users",       label: "Usuarios" },
+    { id: "leaderboard", label: "Tabla" },
+    { id: "phases",      label: "Fases" },
+    { id: "results",     label: "Resultados" },
+    { id: "matrix",      label: "Por jugador" },
+    { id: "bonus",       label: "Bonus oficiales" },
+    { id: "pbonus",      label: "Bonus jugadores" },
   ];
 
   return (
@@ -1961,21 +2091,45 @@ function AdminScreen({
 
       {isPreview && (
         <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-          <div className="notice closed">
-            <Icon.Eye size={16}/>
-            <div><strong>Full Preview.</strong><br/>Modo solo lectura para visualizar fases completas, usuarios de prueba, resultados, ranking y bonus sin tocar Live.</div>
+          <div className="notice closed" style={{flexDirection: "column", gap: 10, alignItems: "flex-start"}}>
+            <div style={{display:"flex", alignItems:"center", gap: 8}}>
+              <Icon.Eye size={16}/>
+              <strong>Full Preview</strong>
+              <span className="muted-2" style={{fontSize: 11}}>— datos de prueba, sin afectar Live</span>
+            </div>
+            <div className="pill-tabs" style={{padding: 2}}>
+              <button className={`pill-tab ${previewAs === "admin" ? "active" : ""}`} style={{fontSize: 11, padding: "4px 10px"}} onClick={() => setPreviewAs("admin")}>
+                Vista admin
+              </button>
+              <button className={`pill-tab ${previewAs === "user" ? "active" : ""}`} style={{fontSize: 11, padding: "4px 10px"}} onClick={() => setPreviewAs("user")}>
+                Vista participante
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {tab === "summary" && <SummaryTab users={viewUsers} realResults={viewResults} phaseOpen={viewPhaseOpen} matches={viewMatches} participants={viewParticipants}/>}
-      {tab === "users"   && <UsersTab users={viewUsers} setUsers={setUsers} flash={flash} readOnly={isPreview}/>} 
-      {tab === "groups"  && <GroupsTab matches={viewMatches} realResults={viewResults}/>} 
-      {tab === "phases"  && <PhasesTab phaseOpen={viewPhaseOpen} setPhaseOpen={setPhaseOpen} flash={flash} readOnly={isPreview} matches={viewMatches}/>} 
-      {tab === "results" && <ResultsTab realResults={viewResults} setRealResults={setRealResults} readOnly={isPreview} matches={viewMatches}/>} 
-      {tab === "matrix"  && <MatrixTab realResults={viewResults} participants={viewParticipants} matches={viewMatches}/>} 
-      {tab === "bonus"   && <OfficialBonusTab officialBonus={viewOfficialBonus} setOfficialBonus={setOfficialBonus} flash={flash} readOnly={isPreview}/>} 
-      {tab === "pbonus"  && <ParticipantBonusTab participantBonus={viewParticipantBonus} officialBonus={viewOfficialBonus} participants={viewParticipants}/>} 
+      {isPreview && previewAs === "user" ? (
+        <PreviewUserView
+          matches={viewMatches}
+          participants={viewParticipants}
+          realResults={viewResults}
+          phaseOpen={viewPhaseOpen}
+          participantBonus={viewParticipantBonus}
+          officialBonus={viewOfficialBonus}
+        />
+      ) : (
+        <>
+          {tab === "summary"     && <SummaryTab users={viewUsers} realResults={viewResults} phaseOpen={viewPhaseOpen} matches={viewMatches} participants={viewParticipants}/>}
+          {tab === "users"       && <UsersTab users={viewUsers} setUsers={setUsers} flash={flash} readOnly={isPreview}/>}
+          {tab === "leaderboard" && <AdminLeaderboardTab participants={viewParticipants} matches={viewMatches} realResults={viewResults}/>}
+          {tab === "phases"      && <PhasesTab phaseOpen={viewPhaseOpen} setPhaseOpen={setPhaseOpen} flash={flash} readOnly={isPreview} matches={viewMatches}/>}
+          {tab === "results"     && <ResultsTab realResults={viewResults} setRealResults={setRealResults} readOnly={isPreview} matches={viewMatches}/>}
+          {tab === "matrix"      && <MatrixTab realResults={viewResults} participants={viewParticipants} matches={viewMatches}/>}
+          {tab === "bonus"       && <OfficialBonusTab officialBonus={viewOfficialBonus} setOfficialBonus={setOfficialBonus} flash={flash} readOnly={isPreview}/>}
+          {tab === "pbonus"      && <ParticipantBonusTab participantBonus={viewParticipantBonus} officialBonus={viewOfficialBonus} participants={viewParticipants}/>}
+        </>
+      )}
 
       {toast && <div className="copied-flash">{toast}</div>}
     </>
@@ -2061,8 +2215,8 @@ function SummaryTab({ users, realResults, phaseOpen, matches, participants }) {
               <span className="dash-icon"><Icon.Star size={14}/></span>
               Recaudado
             </div>
-            <div className="dash-value">${stats.pagados * 10}</div>
-            <div className="dash-sub">{stats.pagados}× $10 · meta ${stats.participantes * 10}</div>
+            <div className="dash-value">€{stats.pagados * 20}</div>
+            <div className="dash-sub">{stats.pagados}× €20 · meta €{stats.participantes * 20}</div>
           </div>
         </div>
       </div>
@@ -2147,11 +2301,12 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
     setError("");
     setSending(true);
     try {
+      const newAlias = username.trim().toLowerCase();
       const res = await api("/api/admin/users", {
         method: "POST",
         body: JSON.stringify({
           nombre: fullName.trim(),
-          alias: username.trim().toLowerCase(),
+          alias: newAlias,
           email: email.trim(),
         }),
       });
@@ -2159,10 +2314,13 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
       const refreshed = await api("/api/admin/users");
       if (refreshed.users) {
         applyBackendData({ users: refreshed.users });
-        setUsers(window.QUINIELA_DATA.MOCK_USERS);
+        // Preservar contraseña real en estado (backend devuelve "********")
+        setUsers(window.QUINIELA_DATA.MOCK_USERS.map(u =>
+          u.user === newAlias ? { ...u, pass: res.password } : u
+        ));
       }
       setFullName(""); setUsername(""); setEmail("");
-      flash(`Usuario creado · Contraseña: ${res.password}`);
+      flash(`✓ Usuario creado · Contraseña: ${res.password}`);
     } catch (e) {
       setError(e.message || "No se pudo crear el usuario. Inténtalo de nuevo.");
     } finally {
@@ -3280,8 +3438,8 @@ function mapMatchFromApi(match) {
     away: match.away || null,
     kickoffMs: date.getTime(),
     kickoffISO: match.date,
-    date: `${date.getUTCDate()} ${months[date.getUTCMonth()]}`,
-    time: `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`,
+    date: `${date.getDate()} ${months[date.getMonth()]}`,
+    time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
   };
   if (match.home_flag) window.QUINIELA_DATA.FLAG_CODES[match.home] = match.home_flag;
   if (match.away_flag) window.QUINIELA_DATA.FLAG_CODES[match.away] = match.away_flag;
