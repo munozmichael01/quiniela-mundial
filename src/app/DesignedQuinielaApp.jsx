@@ -5,20 +5,8 @@ import React from "react";
 
 // World Cup 2026 mock data — 48 teams, 12 groups A-L
 
-const GROUPS = {
-  A: ["México", "Canadá", "Croacia", "Marruecos"],
-  B: ["EE.UU.", "Argentina", "Japón", "Senegal"],
-  C: ["Brasil", "España", "Australia", "Irán"],
-  D: ["Francia", "Alemania", "Suiza", "Corea del Sur"],
-  E: ["Inglaterra", "Países Bajos", "Uruguay", "Irak"],
-  F: ["Portugal", "Bélgica", "Ecuador", "Ghana"],
-  G: ["Italia", "Colombia", "Chile", "Nigeria"],
-  H: ["Dinamarca", "Polonia", "Costa Rica", "Túnez"],
-  I: ["Suecia", "Serbia", "Camerún", "Arabia Saudita"],
-  J: ["Noruega", "Gales", "Nueva Zelanda", "Egipto"],
-  K: ["Austria", "Perú", "Catar", "Argelia"],
-  L: ["Hungría", "Grecia", "Panamá", "Jordania"],
-};
+// GROUPS se construye dinámicamente desde el backend — este objeto es solo fallback vacío
+const GROUPS = {};
 
 const FLAGS = {
   "México":"🇲🇽","Canadá":"🇨🇦","Croacia":"🇭🇷","Marruecos":"🇲🇦",
@@ -56,46 +44,7 @@ const FLAG_CODES = {
   "RD Congo":"cd","Uzbekistán":"uz",
 };
 
-// Generate the 6 round-robin matches per group
-// Schedule: each group plays 3 rounds; 3 groups share each day (6 matches/day)
-function buildMatches() {
-  const matches = [];
-  const groupKeys = Object.keys(GROUPS);
-  const monthsEs = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  groupKeys.forEach((g, groupIdx) => {
-    const teams = GROUPS[g];
-    const pairings = [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]];
-    pairings.forEach((p, i) => {
-      const round = Math.floor(i / 2);          // 0,1,2
-      const matchInRound = i % 2;                // 0,1
-      const dayInRound = Math.floor(groupIdx / 3); // 0-3 (4 days per round)
-      const day = round * 4 + dayInRound;        // 0-11
-      const slotInDay = (groupIdx % 3) * 2 + matchInRound; // 0-5
-      const hour = 13 + slotInDay * 2;           // 13,15,17,19,21,23 UTC
-      const kickoffMs = Date.UTC(2026, 5, 11 + day, hour, 0, 0);
-      const d = new Date(kickoffMs);
-      const dayLabel = `${d.getUTCDate()} ${monthsEs[d.getUTCMonth()]}`;
-      const timeLabel = `${String(hour).padStart(2,"0")}:00`;
-      matches.push({
-        id: `${g}-${i}`,
-        phase: "groups",
-        group: g,
-        round: round + 1,
-        home: teams[p[0]],
-        away: teams[p[1]],
-        kickoffMs,
-        kickoffISO: d.toISOString(),
-        date: dayLabel,
-        time: timeLabel,
-      });
-    });
-  });
-  // Sort by kickoff so matrix and admin show in chronological order naturally
-  matches.sort((a, b) => a.kickoffMs - b.kickoffMs || a.id.localeCompare(b.id));
-  return matches;
-}
-
-const MATCHES_GROUPS = buildMatches();
+const MATCHES_GROUPS = [];
 
 // Eliminatorias — 32 partidos con placeholders de cruces (1A, 2B, …)
 function buildKnockout() {
@@ -204,88 +153,16 @@ const GOALKEEPERS = [
   "Jordan Pickford (ING)", "Yann Sommer (SUI)",
 ];
 
-const ALL_TEAMS = Object.values(GROUPS).flat();
-
-// Mock participants — each has a username, email, and a seed of predictions
-const PARTICIPANTS_RAW = [
-  { name: "Laura Ramírez",      user: "laura.ramirez",    email: "laura.ramirez@email.com",    seed: 11 },
-  { name: "Diego Morales",      user: "diego.morales",    email: "diego.morales@email.com",    seed: 22 },
-  { name: "Andrea Pérez",       user: "andrea.perez",     email: "andrea.perez@email.com",     seed: 33 },
-  { name: "Carlos Vega",        user: "carlos.vega",      email: "carlos.vega@email.com",      seed: 44 },
-  { name: "Sofía López",        user: "sofia.lopez",      email: "sofia.lopez@email.com",      seed: 55 },
-  { name: "Mateo Gómez",        user: "mateo.gomez",      email: "mateo.gomez@email.com",      seed: 66 },
-  { name: "Valentina Núñez",    user: "valentina.nunez",  email: "valentina.nunez@email.com",  seed: 77 },
-  { name: "Tú",                 user: "tu.usuario",       email: "tu@email.com",               seed: 88, isMe: true },
-  { name: "Joaquín Torres",     user: "joaquin.torres",   email: "joaquin.torres@email.com",   seed: 99 },
-  { name: "Camila Bravo",       user: "camila.bravo",     email: "camila.bravo@email.com",     seed: 110 },
-  { name: "Felipe Soto",        user: "felipe.soto",      email: "felipe.soto@email.com",      seed: 121 },
-  { name: "Renata Ortiz",       user: "renata.ortiz",     email: "renata.ortiz@email.com",     seed: 132 },
-  { name: "Bruno Álvarez",      user: "bruno.alvarez",    email: "bruno.alvarez@email.com",    seed: 143 },
-  { name: "Isabella Fernández", user: "isabella.fern",    email: "isabella.fernandez@email.com", seed: 154 },
-];
-
-// Seeded RNG for reproducible predictions
-function mulberry32(seed) {
-  return function() {
-    let t = seed += 0x6D2B79F5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+const ALL_TEAMS = [];
 
 function initials(name) {
-  const parts = name.trim().split(/\s+/);
+  const parts = String(name || "").trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Build participant predictions: each has predictions[matchId] = { home, away }
-function buildParticipantPredictions() {
-  const result = {};
-  PARTICIPANTS_RAW.forEach(p => {
-    const rng = mulberry32(p.seed);
-    const preds = {};
-    MATCHES.forEach((m, i) => {
-      if (m.phase !== "groups") return; // KO matches: no historic mock predictions
-      // Each participant has filled ~30-40 of the 72 matches
-      const fillRate = 0.45 + (rng() * 0.35);
-      if (rng() < fillRate) {
-        preds[m.id] = {
-          home: String(Math.floor(rng() * 4)),
-          away: String(Math.floor(rng() * 4)),
-        };
-      }
-    });
-    result[p.user] = preds;
-  });
-  return result;
-}
-
-const PARTICIPANT_PREDICTIONS = buildParticipantPredictions();
-
-const PARTICIPANTS = PARTICIPANTS_RAW.map(p => ({
-  ...p,
-  initials: initials(p.name),
-  predictions: PARTICIPANT_PREDICTIONS[p.user],
-}));
-
-// Mock users for admin (the same participants, with passwords)
-const PASS_WORDS = [
-  "Gol7Mundial", "TiroPenalti26", "ArqueroMx99", "PaseMagico14",
-  "FaltaDirecta8", "ArcoLibre22", "GolazoArg10", "PicaPiedra33",
-  "JogoBonito77", "TacoCorto55", "EleganteFin", "DerbiClasico",
-  "GolFinal2026", "PenaltiArquero",
-];
-
-const MOCK_USERS = PARTICIPANTS_RAW.map((p, i) => ({
-  id: i + 1,
-  user: p.user,
-  name: p.name,
-  email: p.email,
-  pass: PASS_WORDS[i],
-  initials: initials(p.name),
-}));
+const PARTICIPANTS = [];
+const MOCK_USERS = [];
 
 window.QUINIELA_DATA = {
   GROUPS, FLAGS, FLAG_CODES, MATCHES, MATCHES_GROUPS, MATCHES_KO, PHASES,
@@ -2272,9 +2149,18 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
     flash(`Usuario ${u?.user || ""} eliminado`);
   }
 
-  function togglePaid(id) {
+  async function togglePaid(id) {
     if (readOnly) return;
-    setUsers(users.map(u => u.id === id ? { ...u, paid: !u.paid } : u));
+    const u = users.find(x => x.id === id);
+    if (!u?.uuid) return;
+    const newPaid = !u.paid;
+    setUsers(users.map(x => x.id === id ? { ...x, paid: newPaid } : x));
+    try {
+      await api(`/api/admin/users/${u.uuid}/paid`, { method: "PATCH", body: JSON.stringify({ paid: newPaid }) });
+    } catch {
+      setUsers(users.map(x => x.id === id ? { ...x, paid: u.paid } : x));
+      flash("Error al guardar el estado de pago");
+    }
   }
 
   function togglePass(id) {
@@ -2410,8 +2296,8 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
                   <button className="icon-btn" onClick={() => copyCreds(u)} title="Copiar credenciales">
                     <Icon.Copy size={14}/>
                   </button>
-                  <button className="icon-btn" onClick={() => shareCreds(u)} title="Enviar por WhatsApp">
-                    <Icon.Share2 size={14}/>
+                  <button className="btn btn-sm btn-secondary" onClick={() => shareCreds(u)} style={{display:"flex",alignItems:"center",gap:5}}>
+                    <Icon.Share2 size={13}/>Enviar
                   </button>
                 </div>
                 <button
@@ -3362,26 +3248,18 @@ function mapMatchFromApi(match) {
 
 function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
   if (!window.QUINIELA_DATA) return;
-  if (!window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW) {
-    window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW = window.QUINIELA_DATA.PARTICIPANTS;
-  }
+
   if (matches.length) {
     const mappedMatches = matches.map(mapMatchFromApi);
     const groupMatches = mappedMatches.filter(m => m.phase === "groups");
     const koMatches = mappedMatches.filter(m => m.phase !== "groups");
 
     window.QUINIELA_DATA.MATCHES_GROUPS = groupMatches;
-
-    // KO: use backend data if any KO matches exist, otherwise keep generated placeholders
-    if (koMatches.length) {
-      window.QUINIELA_DATA.MATCHES_KO = koMatches;
-    }
-
+    if (koMatches.length) window.QUINIELA_DATA.MATCHES_KO = koMatches;
     window.QUINIELA_DATA.MATCHES = [
       ...window.QUINIELA_DATA.MATCHES_GROUPS,
       ...window.QUINIELA_DATA.MATCHES_KO,
     ];
-
     window.QUINIELA_DATA.GROUPS = groupMatches.reduce((acc, match) => {
       const teams = acc[match.group] || [];
       if (match.home && !teams.includes(match.home)) teams.push(match.home);
@@ -3398,7 +3276,6 @@ function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
       name: row.nombre,
       user: row.alias,
       email: "",
-      seed: index + 11,
       initials: toInitials(row.nombre),
       predictions: {},
       backendStats: row,
@@ -3408,12 +3285,20 @@ function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
   if (users.length) {
     window.QUINIELA_DATA.MOCK_USERS = users.map((user, index) => ({
       id: index + 1,
+      uuid: user.id,
       user: user.alias,
       name: user.nombre,
       email: user.email,
       pass: "********",
-      paid: true,
+      paid: user.paid ?? false,
       initials: toInitials(user.nombre),
+    }));
+    // Preview usa los usuarios reales como base con predicciones ficticias
+    window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW = window.QUINIELA_DATA.MOCK_USERS.map(u => ({
+      name: u.name,
+      user: u.user,
+      email: u.email,
+      initials: u.initials,
     }));
   }
 }
