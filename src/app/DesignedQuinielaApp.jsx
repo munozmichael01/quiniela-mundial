@@ -438,6 +438,12 @@ const Icon = {
       <path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/>
     </svg>
   ),
+  Matrix: (p) => (
+    <svg width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+    </svg>
+  ),
 };
 
 // Flag image — flagcdn.com w{width} format (soporta 20, 40, 80, 160…)
@@ -2585,8 +2591,8 @@ function DesignedOriginalApp() {
     mvp: "",
     portero: "",
   });
-  // Bonus picks de cada participante (seed mock — el suyo se mantiene en `bonus`)
-  const [participantBonus] = React.useState(() => buildParticipantBonusSeed());
+  // Bonus picks de cada participante — datos reales del backend
+  const [participantBonus] = React.useState(() => window.QUINIELA_DATA.PARTICIPANT_BONUS || {});
   // Phase open state — usa valores del backend si están disponibles, si no defaultOpen
   const [phaseOpen, setPhaseOpen] = React.useState(() => {
     const fromBackend = window.QUINIELA_DATA.PHASE_OPEN || {};
@@ -2637,6 +2643,22 @@ function DesignedOriginalApp() {
     }).length;
   }, [predictions]);
 
+  // Unlock logic: user can see others' predictions once they fill all open-phase matches
+  const canSeeMatrix = React.useMemo(() => {
+    const { MATCHES, PHASES, matchPhase } = window.QUINIELA_DATA;
+    return PHASES.every(ph => {
+      if (!phaseOpen[ph.id]) return true; // closed phase: no requirement
+      const phMatches = MATCHES.filter(m => matchPhase(m) === ph.id && window.matchStatus(m) === "upcoming");
+      return phMatches.every(m => {
+        const p = predictions[m.id];
+        return p && p.home !== "" && p.away !== "";
+      });
+    });
+  }, [predictions, phaseOpen]);
+
+  const canSeeBonus = bonus.campeon !== "" && bonus.subcampeon !== "" &&
+    bonus.goleador !== "" && bonus.mvp !== "" && bonus.portero !== "";
+
   if (!user) {
     return (
       <>
@@ -2682,6 +2704,14 @@ function DesignedOriginalApp() {
             )}
             {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults}/>}
             {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus} phaseOpen={phaseOpen}/>}
+            {tab === "matrix" && (canSeeMatrix
+              ? <MatrixTab realResults={realResults} participants={window.QUINIELA_DATA.PARTICIPANTS} matches={window.QUINIELA_DATA.MATCHES}/>
+              : <LockedView message="Completa tus pronósticos de todas las fases abiertas para ver las predicciones de los demás."/>
+            )}
+            {tab === "pbonus" && (canSeeBonus
+              ? <ParticipantBonusTab participantBonus={participantBonus} officialBonus={officialBonus} participants={window.QUINIELA_DATA.PARTICIPANTS}/>
+              : <LockedView message="Guarda todos tus picks de bonus para ver los del resto."/>
+            )}
           </>
         )}
       </div>
@@ -2698,13 +2728,13 @@ function DesignedOriginalApp() {
           </button>
         </div>
       ) : (
-        <div className="bottomnav" style={{gridTemplateColumns: "repeat(4, 1fr)"}}>
+        <div className="bottomnav" style={{gridTemplateColumns: "repeat(6, 1fr)"}}>
           <button className={tab === "predictions" ? "active" : ""} onClick={() => setTab("predictions")}>
             <span className="nav-icon">
               <Icon.List size={20}/>
               {pendingPreds > 0 && <span className="nav-badge">{pendingPreds > 99 ? "99+" : pendingPreds}</span>}
             </span>
-            Pronósticos
+            Pronóst.
           </button>
           <button className={tab === "aciertos" ? "active" : ""} onClick={() => setTab("aciertos")}>
             <span className="nav-icon"><Icon.Check size={20}/></span>
@@ -2718,9 +2748,35 @@ function DesignedOriginalApp() {
             <span className="nav-icon"><Icon.Star size={20}/></span>
             Bonus
           </button>
+          <button className={tab === "matrix" ? "active" : ""} onClick={() => setTab("matrix")}>
+            <span className="nav-icon" style={{position:"relative"}}>
+              <Icon.Matrix size={20}/>
+              {!canSeeMatrix && <span style={{position:"absolute",bottom:-2,right:-4,lineHeight:1}}><Icon.Lock size={10}/></span>}
+            </span>
+            Jugadores
+          </button>
+          <button className={tab === "pbonus" ? "active" : ""} onClick={() => setTab("pbonus")}>
+            <span className="nav-icon" style={{position:"relative"}}>
+              <Icon.Star size={20}/>
+              {!canSeeBonus && <span style={{position:"absolute",bottom:-2,right:-4,lineHeight:1}}><Icon.Lock size={10}/></span>}
+            </span>
+            B. otros
+          </button>
         </div>
       )}
 
+    </div>
+  );
+}
+
+function LockedView({ message }) {
+  return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"60vh",gap:16,padding:"0 32px",textAlign:"center"}}>
+      <div style={{width:56,height:56,borderRadius:16,background:"var(--primary-soft)",display:"grid",placeItems:"center"}}>
+        <Icon.Lock size={24}/>
+      </div>
+      <div style={{fontWeight:700,fontSize:16}}>Contenido bloqueado</div>
+      <div className="muted-2" style={{fontSize:14,maxWidth:280}}>{message}</div>
     </div>
   );
 }
@@ -2891,7 +2947,7 @@ function mapMatchFromApi(match) {
   return mapped;
 }
 
-function applyBackendData({ matches = [], leaderboard = [], users = [], phases = [] }) {
+function applyBackendData({ matches = [], leaderboard = [], users = [], phases = [], allPreds = [], allBonuses = [] }) {
   if (!window.QUINIELA_DATA) return;
 
   if (matches.length) {
@@ -2916,15 +2972,49 @@ function applyBackendData({ matches = [], leaderboard = [], users = [], phases =
   }
 
   if (leaderboard.length) {
+    // Build per-user predictions map: { alias -> { match_id -> {home, away} } }
+    const predsByAlias = {};
+    if (allPreds.length && users.length) {
+      const idToAlias = {};
+      users.forEach(u => { idToAlias[u.id] = u.alias; });
+      allPreds.forEach(p => {
+        const alias = idToAlias[p.user_id];
+        if (!alias) return;
+        if (!predsByAlias[alias]) predsByAlias[alias] = {};
+        predsByAlias[alias][p.match_id] = { home: String(p.home_score), away: String(p.away_score) };
+      });
+    }
+
     window.QUINIELA_DATA.PARTICIPANTS = leaderboard.map((row, index) => ({
       id: index + 1,
       name: row.nombre,
       user: row.alias,
       email: "",
       initials: toInitials(row.nombre),
-      predictions: {},
+      predictions: predsByAlias[row.alias] || {},
       backendStats: row,
     }));
+  }
+
+  // Build participantBonus: { alias -> { campeon, subcampeon, ... } }
+  if (allBonuses.length && users.length) {
+    const idToAlias = {};
+    users.forEach(u => { idToAlias[u.id] = u.alias; });
+    const bonusMap = {};
+    allBonuses.forEach(b => {
+      const alias = idToAlias[b.user_id];
+      if (!alias) return;
+      bonusMap[alias] = {
+        campeon: b.campeon || "",
+        subcampeon: b.subcampeon || "",
+        goleador: b.goleador || "",
+        mvp: b.mvp || "",
+        portero: b.portero || "",
+      };
+    });
+    window.QUINIELA_DATA.PARTICIPANT_BONUS = bonusMap;
+  } else {
+    window.QUINIELA_DATA.PARTICIPANT_BONUS = {};
   }
 
   if (users.length) {
@@ -3052,12 +3142,16 @@ function App() {
       api("/api/leaderboard"),
       api("/api/admin/users"),
       api("/api/phases"),
+      api("/api/predictions/all"),
+      api("/api/bonus/all"),
     ]).then((results) => {
-      const matches    = results[0].status === "fulfilled" ? results[0].value.matches : [];
-      const leaderboard= results[1].status === "fulfilled" ? results[1].value.leaderboard : [];
-      const users      = results[2].status === "fulfilled" ? results[2].value.users : [];
-      const phases     = results[3].status === "fulfilled" ? results[3].value.phases : [];
-      applyBackendData({ matches, leaderboard, users, phases });
+      const matches      = results[0].status === "fulfilled" ? results[0].value.matches : [];
+      const leaderboard  = results[1].status === "fulfilled" ? results[1].value.leaderboard : [];
+      const users        = results[2].status === "fulfilled" ? results[2].value.users : [];
+      const phases       = results[3].status === "fulfilled" ? results[3].value.phases : [];
+      const allPreds     = results[4].status === "fulfilled" ? results[4].value.predictions : [];
+      const allBonuses   = results[5].status === "fulfilled" ? results[5].value.bonuses : [];
+      applyBackendData({ matches, leaderboard, users, phases, allPreds, allBonuses });
       setLoadKey((key) => key + 1);
       setLoaded(true);
     });
