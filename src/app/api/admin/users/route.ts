@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { generatePassword } from "@/lib/auth";
-import { sendWelcomeEmail } from "@/lib/email";
 import { z } from "zod";
 
 const createUserSchema = z.object({
@@ -78,17 +77,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
 
-  // Send welcome email — non-blocking: user is created regardless
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const emailResult = await sendWelcomeEmail({ to: email, nombre, alias, password, appUrl });
-
-  return NextResponse.json(
-    {
-      ok: true,
-      userId: authData.user.id,
-      emailSent: emailResult.ok,
-      ...(emailResult.error ? { emailError: emailResult.error } : {}),
-    },
-    { status: 201 }
-  );
+  return NextResponse.json({ ok: true, userId: authData.user.id, password }, { status: 201 });
 }

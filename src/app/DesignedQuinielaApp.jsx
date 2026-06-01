@@ -38,7 +38,7 @@ const FLAGS = {
 // ISO-2 codes for flagcdn.com (gb-eng / gb-wls for home nations)
 const FLAG_CODES = {
   "México":"mx","Canadá":"ca","Croacia":"hr","Marruecos":"ma",
-  "EE.UU.":"us","Argentina":"ar","Japón":"jp","Senegal":"sn",
+  "EE.UU.":"us","Estados Unidos":"us","Argentina":"ar","Japón":"jp","Senegal":"sn",
   "Brasil":"br","España":"es","Australia":"au","Irán":"ir",
   "Francia":"fr","Alemania":"de","Suiza":"ch","Corea del Sur":"kr",
   "Inglaterra":"gb-eng","Países Bajos":"nl","Uruguay":"uy","Irak":"iq",
@@ -49,6 +49,11 @@ const FLAG_CODES = {
   "Noruega":"no","Gales":"gb-wls","Nueva Zelanda":"nz","Egipto":"eg",
   "Austria":"at","Perú":"pe","Catar":"qa","Argelia":"dz",
   "Hungría":"hu","Grecia":"gr","Panamá":"pa","Jordania":"jo",
+  // Equipos nuevos Mundial 2026
+  "Sudáfrica":"za","República Checa":"cz","Bosnia y Herzegovina":"ba",
+  "Haití":"ht","Escocia":"gb-sct","Paraguay":"py","Turquía":"tr",
+  "Curazao":"cw","Costa de Marfil":"ci","Cabo Verde":"cv",
+  "RD Congo":"cd","Uzbekistán":"uz",
 };
 
 // Generate the 6 round-robin matches per group
@@ -521,6 +526,12 @@ const Icon = {
     <svg width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
       <path d="M1 1l22 22"/>
+    </svg>
+  ),
+  Share2: (p) => (
+    <svg width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+      <path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/>
     </svg>
   ),
 };
@@ -2229,24 +2240,25 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
     if (err) { setError(err); return; }
     setError("");
     setSending(true);
-    const pass = genPass();
-    const newU = {
-      id: Math.max(0, ...users.map(u => u.id)) + 1,
-      name: fullName.trim(),
-      user: username.trim().toLowerCase(),
-      email: email.trim(),
-      pass,
-      paid: false,
-      initials: initials(fullName.trim()),
-    };
     try {
-      // TODO backend: POST /api/users → Resend email
-      await new Promise(r => setTimeout(r, 700));
-      setUsers([...users, newU]);
+      const res = await api("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify({
+          nombre: fullName.trim(),
+          alias: username.trim().toLowerCase(),
+          email: email.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(res.error || "Error al crear usuario");
+      const refreshed = await api("/api/admin/users");
+      if (refreshed.users) {
+        applyBackendData({ users: refreshed.users });
+        setUsers(window.QUINIELA_DATA.MOCK_USERS);
+      }
       setFullName(""); setUsername(""); setEmail("");
-      flash(`Contraseña enviada a ${newU.email}`);
-    } catch {
-      setError("No se pudo crear el usuario. Inténtalo de nuevo.");
+      flash(`Usuario creado · Contraseña: ${res.password}`);
+    } catch (e) {
+      setError(e.message || "No se pudo crear el usuario. Inténtalo de nuevo.");
     } finally {
       setSending(false);
     }
@@ -2269,10 +2281,23 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
     setShowPassFor(prev => ({ ...prev, [id]: !prev[id] }));
   }
 
+  function credsText(u) {
+    return `Hola ${u.name || u.user}, tu acceso a la Quiniela Mundial 2026:\n\nUsuario: ${u.user}\nContraseña: ${u.pass}\n\nMucha suerte. ⚽`;
+  }
+
   function copyCreds(u) {
-    const text = `Hola ${u.name || u.user}, tu acceso a la Quiniela Mundial 2026:\n\nUsuario: ${u.user}\nContraseña: ${u.pass}\n\nMucha suerte.`;
-    navigator.clipboard?.writeText(text).catch(() => {});
+    navigator.clipboard?.writeText(credsText(u)).catch(() => {});
     flash(`Credenciales de ${u.user} copiadas`);
+  }
+
+  async function shareCreds(u) {
+    const text = credsText(u);
+    if (navigator.share) {
+      try { await navigator.share({ text }); } catch {}
+    } else {
+      // fallback: abrir WhatsApp Web
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
   }
 
   React.useEffect(() => {
@@ -2384,6 +2409,9 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
                   </button>
                   <button className="icon-btn" onClick={() => copyCreds(u)} title="Copiar credenciales">
                     <Icon.Copy size={14}/>
+                  </button>
+                  <button className="icon-btn" onClick={() => shareCreds(u)} title="Enviar por WhatsApp">
+                    <Icon.Share2 size={14}/>
                   </button>
                 </div>
                 <button
@@ -3308,23 +3336,27 @@ function toInitials(name) {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+const KO_PHASES = new Set(["r32", "r16", "qf", "sf", "third", "final"]);
+const KO_ROUND = { r32: 4, r16: 5, qf: 6, sf: 7, third: 8, final: 9 };
+
 function mapMatchFromApi(match) {
   const date = new Date(match.date);
   const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  const isKO = KO_PHASES.has(match.group);
   const mapped = {
     id: match.id,
-    phase: "groups",
+    phase: isKO ? match.group : "groups",
     group: match.group,
-    round: 1,
-    home: match.home,
-    away: match.away,
+    round: isKO ? (KO_ROUND[match.group] ?? 4) : 1,
+    home: match.home || null,
+    away: match.away || null,
     kickoffMs: date.getTime(),
     kickoffISO: match.date,
     date: `${date.getUTCDate()} ${months[date.getUTCMonth()]}`,
     time: `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`,
   };
-  window.QUINIELA_DATA.FLAG_CODES[match.home] = match.home_flag || window.QUINIELA_DATA.FLAG_CODES[match.home];
-  window.QUINIELA_DATA.FLAG_CODES[match.away] = match.away_flag || window.QUINIELA_DATA.FLAG_CODES[match.away];
+  if (match.home_flag) window.QUINIELA_DATA.FLAG_CODES[match.home] = match.home_flag;
+  if (match.away_flag) window.QUINIELA_DATA.FLAG_CODES[match.away] = match.away_flag;
   return mapped;
 }
 
@@ -3335,16 +3367,29 @@ function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
   }
   if (matches.length) {
     const mappedMatches = matches.map(mapMatchFromApi);
-    window.QUINIELA_DATA.MATCHES = mappedMatches;
-    window.QUINIELA_DATA.MATCHES_GROUPS = mappedMatches;
-    window.QUINIELA_DATA.GROUPS = mappedMatches.reduce((acc, match) => {
+    const groupMatches = mappedMatches.filter(m => m.phase === "groups");
+    const koMatches = mappedMatches.filter(m => m.phase !== "groups");
+
+    window.QUINIELA_DATA.MATCHES_GROUPS = groupMatches;
+
+    // KO: use backend data if any KO matches exist, otherwise keep generated placeholders
+    if (koMatches.length) {
+      window.QUINIELA_DATA.MATCHES_KO = koMatches;
+    }
+
+    window.QUINIELA_DATA.MATCHES = [
+      ...window.QUINIELA_DATA.MATCHES_GROUPS,
+      ...window.QUINIELA_DATA.MATCHES_KO,
+    ];
+
+    window.QUINIELA_DATA.GROUPS = groupMatches.reduce((acc, match) => {
       const teams = acc[match.group] || [];
-      if (!teams.includes(match.home)) teams.push(match.home);
-      if (!teams.includes(match.away)) teams.push(match.away);
+      if (match.home && !teams.includes(match.home)) teams.push(match.home);
+      if (match.away && !teams.includes(match.away)) teams.push(match.away);
       acc[match.group] = teams;
       return acc;
     }, {});
-    window.QUINIELA_DATA.ALL_TEAMS = Array.from(new Set(mappedMatches.flatMap((match) => [match.home, match.away]))).sort();
+    window.QUINIELA_DATA.ALL_TEAMS = Array.from(new Set(groupMatches.flatMap(m => [m.home, m.away]).filter(Boolean))).sort();
   }
 
   if (leaderboard.length) {
