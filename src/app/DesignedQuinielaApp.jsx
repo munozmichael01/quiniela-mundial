@@ -617,6 +617,7 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
   const [openGroups, setOpenGroups] = React.useState(() => ({ A: true }));
   const [phaseTab, setPhaseTab] = React.useState("groups");
   const [toast, setToast] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
 
   const totalMatches = MATCHES.length;
   const completed = MATCHES.filter(m => {
@@ -644,9 +645,25 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
     setOpenGroups(prev => ({ ...prev, [g]: !prev[g] }));
   }
 
-  function save() {
-    setToast("Pronósticos guardados");
-    setTimeout(() => setToast(""), 1800);
+  async function save() {
+    const rows = Object.entries(predictions)
+      .filter(([, p]) => p.home !== "" && p.away !== "")
+      .map(([match_id, p]) => ({
+        match_id: Number(match_id),
+        home_score: Number(p.home),
+        away_score: Number(p.away),
+      }));
+    if (rows.length === 0) return;
+    setSaving(true);
+    try {
+      await api("/api/predictions", { method: "PUT", body: JSON.stringify(rows) });
+      setToast("Pronósticos guardados");
+    } catch {
+      setToast("Error al guardar. Inténtalo de nuevo.");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setToast(""), 2500);
+    }
   }
 
   function groupProgress(g) {
@@ -796,9 +813,9 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
       )}
 
       <div className="save-bar">
-        <button className="btn btn-primary btn-block" onClick={save} disabled={!phaseUnlocked}>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={!phaseUnlocked || saving}>
           <Icon.Check size={18}/>
-          Guardar pronósticos
+          {saving ? "Guardando…" : "Guardar pronósticos"}
         </button>
         <div className="save-status">
           {phaseUnlocked
@@ -1203,6 +1220,7 @@ window.LeaderboardScreen = LeaderboardScreen;
 function BonusScreen({ bonus, setBonus, phaseOpen }) {
   const { ALL_TEAMS, TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS } = window.QUINIELA_DATA;
   const [toast, setToast] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
   const closed = phaseOpen != null ? !phaseOpen["bonus"] : window.bonusClosed();
 
   const fields = [
@@ -1220,9 +1238,17 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
     setBonus(prev => ({ ...prev, [key]: val }));
   }
 
-  function save() {
-    setToast("Bonus guardados");
-    setTimeout(() => setToast(""), 1800);
+  async function save() {
+    setSaving(true);
+    try {
+      await api("/api/bonus", { method: "PUT", body: JSON.stringify(bonus) });
+      setToast("Bonus guardados");
+    } catch {
+      setToast("Error al guardar. Inténtalo de nuevo.");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setToast(""), 2500);
+    }
   }
 
   return (
@@ -1308,9 +1334,9 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
 
       {!closed && (
         <div className="save-bar">
-          <button className="btn btn-primary btn-block" onClick={save}>
+          <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>
             <Icon.Check size={18}/>
-            Guardar bonus
+            {saving ? "Guardando…" : "Guardar bonus"}
           </button>
           <div className="save-status">
             {completed < 5
@@ -2550,11 +2576,7 @@ function DesignedOriginalApp() {
   const [predictions, setPredictions] = React.useState(() => buildSeedPredictions());
   const [realResults, setRealResults] = React.useState(() => buildSeedReal());
   const [bonus, setBonus] = React.useState({
-    campeon: "Argentina",
-    subcampeon: "",
-    goleador: "",
-    mvp: "",
-    portero: "",
+    campeon: "", subcampeon: "", goleador: "", mvp: "", portero: "",
   });
   const [officialBonus, setOfficialBonus] = React.useState({
     campeon: "",
@@ -2577,6 +2599,34 @@ function DesignedOriginalApp() {
   const [users, setUsers] = React.useState(() =>
     window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u }))
   );
+
+  // Load user data after login
+  React.useEffect(() => {
+    if (!user || user.role === "admin") return;
+    Promise.allSettled([
+      api("/api/predictions"),
+      api("/api/bonus"),
+    ]).then(([predsRes, bonusRes]) => {
+      if (predsRes.status === "fulfilled") {
+        const rows = predsRes.value.predictions || [];
+        const map = {};
+        rows.forEach(r => {
+          map[r.match_id] = { home: String(r.home_score), away: String(r.away_score) };
+        });
+        setPredictions(map);
+      }
+      if (bonusRes.status === "fulfilled" && bonusRes.value.bonus) {
+        const b = bonusRes.value.bonus;
+        setBonus({
+          campeon: b.campeon || "",
+          subcampeon: b.subcampeon || "",
+          goleador: b.goleador || "",
+          mvp: b.mvp || "",
+          portero: b.portero || "",
+        });
+      }
+    });
+  }, [user]);
 
   // Pending predictions count (upcoming matches without a prediction)
   const pendingPreds = React.useMemo(() => {
