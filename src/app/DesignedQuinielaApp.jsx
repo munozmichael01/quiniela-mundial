@@ -2445,10 +2445,20 @@ function PhasesTab({ phaseOpen, setPhaseOpen, flash, readOnly = false, matches }
   const { PHASES, matchPhase } = window.QUINIELA_DATA;
   const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
 
-  function toggle(phaseId) {
+  async function toggle(phaseId) {
+    if (readOnly) return;
     const next = !phaseOpen[phaseId];
-    setPhaseOpen(prev => ({ ...prev, [phaseId]: next }));
-    flash(`Fase ${PHASES.find(p => p.id === phaseId).label} ${next ? "abierta" : "cerrada"}`);
+    setPhaseOpen(prev => ({ ...prev, [phaseId]: next })); // optimistic
+    try {
+      await api("/api/admin/phases", {
+        method: "PATCH",
+        body: JSON.stringify({ id: phaseId, is_open: next }),
+      });
+      flash(`Fase ${PHASES.find(p => p.id === phaseId).label} ${next ? "abierta ✓" : "cerrada ✓"}`);
+    } catch {
+      setPhaseOpen(prev => ({ ...prev, [phaseId]: !next })); // rollback
+      flash("Error al guardar el estado de la fase");
+    }
   }
 
   return (
@@ -2967,10 +2977,13 @@ function DesignedOriginalApp() {
   });
   // Bonus picks de cada participante (seed mock — el suyo se mantiene en `bonus`)
   const [participantBonus] = React.useState(() => buildParticipantBonusSeed());
-  // Phase open state — admin controla cuándo se abren
+  // Phase open state — usa valores del backend si están disponibles, si no defaultOpen
   const [phaseOpen, setPhaseOpen] = React.useState(() => {
+    const fromBackend = window.QUINIELA_DATA.PHASE_OPEN || {};
     const initial = {};
-    window.QUINIELA_DATA.PHASES.forEach(p => { initial[p.id] = p.defaultOpen; });
+    window.QUINIELA_DATA.PHASES.forEach(p => {
+      initial[p.id] = p.id in fromBackend ? fromBackend[p.id] : p.defaultOpen;
+    });
     return initial;
   });
   const [users, setUsers] = React.useState(() =>
@@ -3275,7 +3288,7 @@ function mapMatchFromApi(match) {
   return mapped;
 }
 
-function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
+function applyBackendData({ matches = [], leaderboard = [], users = [], phases = [] }) {
   if (!window.QUINIELA_DATA) return;
 
   if (matches.length) {
@@ -3325,6 +3338,10 @@ function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
         initials: toInitials(user.nombre),
       }));
     // Preview siempre usa participantes ficticios — no se toca PREVIEW_PARTICIPANTS_RAW
+  }
+
+  if (phases.length) {
+    window.QUINIELA_DATA.PHASE_OPEN = Object.fromEntries(phases.map(p => [p.id, p.is_open]));
   }
 }
 
@@ -3434,11 +3451,13 @@ function App() {
       api("/api/matches"),
       api("/api/leaderboard"),
       api("/api/admin/users"),
+      api("/api/phases"),
     ]).then((results) => {
-      const matches = results[0].status === "fulfilled" ? results[0].value.matches : [];
-      const leaderboard = results[1].status === "fulfilled" ? results[1].value.leaderboard : [];
-      const users = results[2].status === "fulfilled" ? results[2].value.users : [];
-      applyBackendData({ matches, leaderboard, users });
+      const matches    = results[0].status === "fulfilled" ? results[0].value.matches : [];
+      const leaderboard= results[1].status === "fulfilled" ? results[1].value.leaderboard : [];
+      const users      = results[2].status === "fulfilled" ? results[2].value.users : [];
+      const phases     = results[3].status === "fulfilled" ? results[3].value.phases : [];
+      applyBackendData({ matches, leaderboard, users, phases });
       setLoadKey((key) => key + 1);
       setLoaded(true);
     });

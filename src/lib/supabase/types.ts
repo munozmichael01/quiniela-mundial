@@ -179,6 +179,24 @@ export interface Database {
         };
         Relationships: NoRelationships;
       };
+      phase_settings: {
+        Row: {
+          id: string;
+          is_open: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          is_open?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          is_open?: boolean;
+          updated_at?: string;
+        };
+        Relationships: NoRelationships;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

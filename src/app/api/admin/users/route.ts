@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const createUserSchema = z.object({
   nombre: z.string().min(1).max(100),
-  alias: z.string().min(2).max(30).regex(/^[a-zA-Z0-9_]+$/, "Solo letras, números y guión bajo"),
+  alias: z.string().min(2).max(30).regex(/^[a-zA-Z0-9_.]+$/, "Solo letras, números, punto y guión bajo"),
   email: z.string().email(),
 });
 
