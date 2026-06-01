@@ -1729,10 +1729,10 @@ window.LeaderboardScreen = LeaderboardScreen;
 
 // Bonus — 5 selectores con cierre automático el 11 de junio
 
-function BonusScreen({ bonus, setBonus }) {
+function BonusScreen({ bonus, setBonus, phaseOpen }) {
   const { ALL_TEAMS, TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS } = window.QUINIELA_DATA;
   const [toast, setToast] = React.useState("");
-  const closed = window.bonusClosed();
+  const closed = phaseOpen != null ? !phaseOpen["bonus"] : window.bonusClosed();
 
   const fields = [
     { key: "campeon", label: "Campeón", icon: "Trophy", options: ALL_TEAMS, withFlags: true },
@@ -1978,7 +1978,7 @@ function PreviewUserView({ matches, participants, realResults, phaseOpen, partic
         <LeaderboardScreen currentUser={fakeUser} realResults={realResults}/>
       )}
       {tab === "bonus" && (
-        <BonusScreen bonus={participantBonus[fakeUser.user] || {}} setBonus={() => {}}/>
+        <BonusScreen bonus={participantBonus[fakeUser.user] || {}} setBonus={() => {}} phaseOpen={phaseOpen}/>
       )}
     </>
   );
@@ -2728,9 +2728,8 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
         <div className="card">
           {resMatches.map(m => {
             const r = realResults[m.id] || {home:"",away:""};
-            const status = window.matchStatus(m);
-            const canEdit = status !== "upcoming";
             const isPlaceholder = m.home == null;
+            const canEdit = !isPlaceholder;
             return (
               <div className={`match-row ${isPlaceholder ? "placeholder" : ""}`} key={m.id}>
                 <div className="match-team home">
@@ -2755,11 +2754,9 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
                     : <><span className="name">{m.away}</span><FlagImg team={m.away}/></>}
                 </div>
                 <div className="match-meta">
-                  {!canEdit
-                    ? <span className="status-badge status-upcoming"><Icon.Clock size={9}/>Próximo</span>
-                    : (r.home !== ""
-                        ? <span className="status-badge status-finished"><Icon.Check size={9}/>Cargado</span>
-                        : <span className="status-badge status-soon"><Icon.Clock size={9}/>Por cargar</span>)}
+                  {r.home !== ""
+                    ? <span className="status-badge status-finished"><Icon.Check size={9}/>Cargado</span>
+                    : <span className="status-badge status-soon"><Icon.Clock size={9}/>Por cargar</span>}
                   <span style={{marginLeft: 6}}>{m.date} · {m.time}</span>
                 </div>
               </div>
@@ -3199,8 +3196,7 @@ function DesignedOriginalApp() {
               />
             )}
             {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults}/>}
-            {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus}/>}
-            {tab === "profile" && <ProfileScreen user={user} onLogout={() => setUser(null)}/>}
+            {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus} phaseOpen={phaseOpen}/>}
           </>
         )}
       </div>
@@ -3217,7 +3213,7 @@ function DesignedOriginalApp() {
           </button>
         </div>
       ) : (
-        <div className="bottomnav" style={{gridTemplateColumns: "repeat(5, 1fr)"}}>
+        <div className="bottomnav" style={{gridTemplateColumns: "repeat(4, 1fr)"}}>
           <button className={tab === "predictions" ? "active" : ""} onClick={() => setTab("predictions")}>
             <span className="nav-icon">
               <Icon.List size={20}/>
@@ -3236,10 +3232,6 @@ function DesignedOriginalApp() {
           <button className={tab === "bonus" ? "active" : ""} onClick={() => setTab("bonus")}>
             <span className="nav-icon"><Icon.Star size={20}/></span>
             Bonus
-          </button>
-          <button className={tab === "profile" ? "active" : ""} onClick={() => setTab("profile")}>
-            <span className="nav-icon"><Icon.Shield size={20}/></span>
-            Perfil
           </button>
         </div>
       )}
