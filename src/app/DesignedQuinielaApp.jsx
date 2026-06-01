@@ -9,18 +9,30 @@ import React from "react";
 const GROUPS = {};
 
 const FLAGS = {
-  "México":"🇲🇽","Canadá":"🇨🇦","Croacia":"🇭🇷","Marruecos":"🇲🇦",
-  "EE.UU.":"🇺🇸","Argentina":"🇦🇷","Japón":"🇯🇵","Senegal":"🇸🇳",
-  "Brasil":"🇧🇷","España":"🇪🇸","Australia":"🇦🇺","Irán":"🇮🇷",
-  "Francia":"🇫🇷","Alemania":"🇩🇪","Suiza":"🇨🇭","Corea del Sur":"🇰🇷",
-  "Inglaterra":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Países Bajos":"🇳🇱","Uruguay":"🇺🇾","Irak":"🇮🇶",
-  "Portugal":"🇵🇹","Bélgica":"🇧🇪","Ecuador":"🇪🇨","Ghana":"🇬🇭",
-  "Italia":"🇮🇹","Colombia":"🇨🇴","Chile":"🇨🇱","Nigeria":"🇳🇬",
-  "Dinamarca":"🇩🇰","Polonia":"🇵🇱","Costa Rica":"🇨🇷","Túnez":"🇹🇳",
-  "Suecia":"🇸🇪","Serbia":"🇷🇸","Camerún":"🇨🇲","Arabia Saudita":"🇸🇦",
-  "Noruega":"🇳🇴","Gales":"🏴󠁧󠁢󠁷󠁬󠁳󠁿","Nueva Zelanda":"🇳🇿","Egipto":"🇪🇬",
-  "Austria":"🇦🇹","Perú":"🇵🇪","Catar":"🇶🇦","Argelia":"🇩🇿",
-  "Hungría":"🇭🇺","Grecia":"🇬🇷","Panamá":"🇵🇦","Jordania":"🇯🇴",
+  // Grupo A
+  "México":"🇲🇽","Sudáfrica":"🇿🇦","Corea del Sur":"🇰🇷","República Checa":"🇨🇿",
+  // Grupo B
+  "Canadá":"🇨🇦","Bosnia y Herzegovina":"🇧🇦","Catar":"🇶🇦","Suiza":"🇨🇭",
+  // Grupo C
+  "Brasil":"🇧🇷","Marruecos":"🇲🇦","Haití":"🇭🇹","Escocia":"🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  // Grupo D
+  "Estados Unidos":"🇺🇸","Paraguay":"🇵🇾","Australia":"🇦🇺","Turquía":"🇹🇷",
+  // Grupo E
+  "Alemania":"🇩🇪","Curazao":"🇨🇼","Costa de Marfil":"🇨🇮","Ecuador":"🇪🇨",
+  // Grupo F
+  "Países Bajos":"🇳🇱","Japón":"🇯🇵","Suecia":"🇸🇪","Túnez":"🇹🇳",
+  // Grupo G
+  "Bélgica":"🇧🇪","Egipto":"🇪🇬","Irán":"🇮🇷","Nueva Zelanda":"🇳🇿",
+  // Grupo H
+  "España":"🇪🇸","Cabo Verde":"🇨🇻","Arabia Saudita":"🇸🇦","Uruguay":"🇺🇾",
+  // Grupo I
+  "Francia":"🇫🇷","Senegal":"🇸🇳","Irak":"🇮🇶","Noruega":"🇳🇴",
+  // Grupo J
+  "Argentina":"🇦🇷","Argelia":"🇩🇿","Austria":"🇦🇹","Jordania":"🇯🇴",
+  // Grupo K
+  "Portugal":"🇵🇹","RD Congo":"🇨🇩","Uzbekistán":"🇺🇿","Colombia":"🇨🇴",
+  // Grupo L
+  "Inglaterra":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Croacia":"🇭🇷","Ghana":"🇬🇭","Panamá":"🇵🇦",
 };
 
 // ISO-2 codes for flagcdn.com (gb-eng / gb-wls for home nations)
@@ -155,6 +167,20 @@ const GOALKEEPERS = [
 
 const ALL_TEAMS = [];
 
+// Participantes de prueba — usados SOLO en modo Full Preview, nunca como datos reales
+const PREVIEW_PARTICIPANTS_DEFAULT = [
+  { name: "Laura Ramírez",      user: "laura.ramirez",   initials: "LR" },
+  { name: "Diego Morales",      user: "diego.morales",   initials: "DM" },
+  { name: "Andrea Pérez",       user: "andrea.perez",    initials: "AP" },
+  { name: "Carlos Vega",        user: "carlos.vega",     initials: "CV" },
+  { name: "Sofía López",        user: "sofia.lopez",     initials: "SL" },
+  { name: "Mateo Gómez",        user: "mateo.gomez",     initials: "MG" },
+  { name: "Valentina Núñez",    user: "valentina.nunez", initials: "VN" },
+  { name: "Joaquín Torres",     user: "joaquin.torres",  initials: "JT" },
+  { name: "Camila Bravo",       user: "camila.bravo",    initials: "CB" },
+  { name: "Felipe Soto",        user: "felipe.soto",     initials: "FS" },
+];
+
 function initials(name) {
   const parts = String(name || "").trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -168,6 +194,7 @@ window.QUINIELA_DATA = {
   GROUPS, FLAGS, FLAG_CODES, MATCHES, MATCHES_GROUPS, MATCHES_KO, PHASES,
   TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS,
   ALL_TEAMS, PARTICIPANTS, MOCK_USERS, initials, matchPhase,
+  PREVIEW_PARTICIPANTS_RAW: PREVIEW_PARTICIPANTS_DEFAULT,
 };
 
 // =============================================================
@@ -3293,13 +3320,14 @@ function applyBackendData({ matches = [], leaderboard = [], users = [] }) {
       paid: user.paid ?? false,
       initials: toInitials(user.nombre),
     }));
-    // Preview usa los usuarios reales como base con predicciones ficticias
-    window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW = window.QUINIELA_DATA.MOCK_USERS.map(u => ({
-      name: u.name,
-      user: u.user,
-      email: u.email,
-      initials: u.initials,
-    }));
+    // Si hay usuarios reales (excluyendo solo-admin), úsalos como base del preview
+    const realUsers = window.QUINIELA_DATA.MOCK_USERS.filter(u => u.user !== "admin");
+    if (realUsers.length > 0) {
+      window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW = realUsers.map(u => ({
+        name: u.name, user: u.user, email: u.email, initials: u.initials,
+      }));
+    }
+    // Si no hay usuarios reales aún, PREVIEW_PARTICIPANTS_RAW mantiene los datos de prueba
   }
 }
 
