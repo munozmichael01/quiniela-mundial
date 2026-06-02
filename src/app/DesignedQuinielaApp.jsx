@@ -1230,11 +1230,11 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
   const closed = phaseOpen != null ? !phaseOpen["bonus"] : window.bonusClosed();
 
   const fields = [
-    { key: "campeon", label: "Campeón", icon: "Trophy", options: ALL_TEAMS, withFlags: true },
-    { key: "subcampeon", label: "Subcampeón", icon: "Shield", options: ALL_TEAMS, withFlags: true },
-    { key: "goleador", label: "Goleador del Mundial", icon: "Ball", options: TOP_SCORERS },
-    { key: "mvp", label: "MVP / Balón de Oro", icon: "Star", options: MVP_CANDIDATES },
-    { key: "portero", label: "Mejor Portero", icon: "Glove", options: GOALKEEPERS },
+    { key: "campeon",    label: "Campeón",            icon: "Trophy", type: "select", options: ALL_TEAMS },
+    { key: "subcampeon", label: "Subcampeón",         icon: "Shield", type: "select", options: ALL_TEAMS },
+    { key: "goleador",  label: "Goleador del Mundial", icon: "Ball",  type: "text", placeholder: "Nombre del jugador" },
+    { key: "mvp",       label: "MVP / Balón de Oro",  icon: "Star",  type: "text", placeholder: "Nombre del jugador" },
+    { key: "portero",   label: "Mejor Portero",       icon: "Glove", type: "text", placeholder: "Nombre del jugador" },
   ];
 
   const completed = fields.filter(f => bonus[f.key]).length;
@@ -1277,16 +1277,16 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
           <div className="notice closed">
             <Icon.Lock size={16}/>
             <div>
-              <strong>Periodo de predicciones cerrado.</strong><br/>
-              El cierre fue el {window.BONUS_DEADLINE_LABEL}. Tus picks quedaron como los guardaste.
+              <strong>Periodo de bonus cerrado.</strong><br/>
+              Tus picks quedaron guardados como los dejaste.
             </div>
           </div>
         ) : (
           <div className="notice">
             <Icon.Alert size={18}/>
             <div>
-              <strong>Cierre: {window.BONUS_DEADLINE_LABEL}.</strong><br/>
-              Tras el primer partido del Mundial no podrás modificar tus bonus.
+              <strong>Bonus abiertos.</strong><br/>
+              El admin cerrará el periodo antes del primer partido.
             </div>
           </div>
         )}
@@ -1306,18 +1306,28 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
               </div>
               <div className="bonus-body">
                 <div className="bonus-label">{f.label}</div>
-                <select
-                  className="select"
-                  value={value}
-                  disabled={closed}
-                  onChange={e => set(f.key, e.target.value)}
-                  style={{height: 38, fontSize: 14, fontWeight: 600, padding: "0 32px 0 0", border: 0, background: "transparent", color: value ? "var(--ink)" : "var(--ink-3)", backgroundPosition: "right 4px center"}}
-                >
-                  <option value="">Selecciona…</option>
-                  {f.options.map(o => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </select>
+                {f.type === "select" ? (
+                  <select
+                    className="select"
+                    value={value}
+                    disabled={closed}
+                    onChange={e => set(f.key, e.target.value)}
+                    style={{height: 38, fontSize: 14, fontWeight: 600, padding: "0 32px 0 0", border: 0, background: "transparent", color: value ? "var(--ink)" : "var(--ink-3)", backgroundPosition: "right 4px center"}}
+                  >
+                    <option value="">Selecciona selección…</option>
+                    {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    className="input"
+                    type="text"
+                    value={value}
+                    disabled={closed}
+                    placeholder={f.placeholder}
+                    onChange={e => set(f.key, e.target.value)}
+                    style={{border: 0, background: "transparent", fontSize: 14, fontWeight: 600, padding: "0", height: 38}}
+                  />
+                )}
               </div>
             </div>
           );
@@ -2606,30 +2616,64 @@ function DesignedOriginalApp() {
     window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u }))
   );
 
-  // Load user data after login
+  // Load user data after login (needs auth session)
+  const [participantsLoaded, setParticipantsLoaded] = React.useState(false);
   React.useEffect(() => {
-    if (!user || user.role === "admin") return;
-    Promise.allSettled([
-      api("/api/predictions"),
-      api("/api/bonus"),
-    ]).then(([predsRes, bonusRes]) => {
-      if (predsRes.status === "fulfilled") {
-        const rows = predsRes.value.predictions || [];
-        const map = {};
-        rows.forEach(r => {
-          map[r.match_id] = { home: String(r.home_score), away: String(r.away_score) };
-        });
-        setPredictions(map);
-      }
-      if (bonusRes.status === "fulfilled" && bonusRes.value.bonus) {
-        const b = bonusRes.value.bonus;
-        setBonus({
-          campeon: b.campeon || "",
-          subcampeon: b.subcampeon || "",
-          goleador: b.goleador || "",
-          mvp: b.mvp || "",
-          portero: b.portero || "",
-        });
+    if (!user) return;
+    const calls = [
+      api("/api/predictions/all"),
+      api("/api/bonus/all"),
+    ];
+    if (user.role !== "admin") {
+      calls.push(api("/api/predictions"));
+      calls.push(api("/api/bonus"));
+    }
+    Promise.allSettled(calls).then((results) => {
+      const allPreds   = results[0].status === "fulfilled" ? results[0].value.predictions : [];
+      const allBonuses = results[1].status === "fulfilled" ? results[1].value.bonuses : [];
+
+      // Rebuild PARTICIPANTS.predictions and PARTICIPANT_BONUS with real data
+      const usersSnap = window.QUINIELA_DATA.MOCK_USERS;
+      const idToAlias = {};
+      usersSnap.forEach(u => { idToAlias[u.uuid] = u.user; });
+
+      const predsByAlias = {};
+      allPreds.forEach(p => {
+        const alias = idToAlias[p.user_id];
+        if (!alias) return;
+        if (!predsByAlias[alias]) predsByAlias[alias] = {};
+        predsByAlias[alias][p.match_id] = { home: String(p.home_score), away: String(p.away_score) };
+      });
+      window.QUINIELA_DATA.PARTICIPANTS = (window.QUINIELA_DATA.PARTICIPANTS || []).map(p => ({
+        ...p,
+        predictions: predsByAlias[p.user] || {},
+      }));
+
+      const bonusMap = {};
+      allBonuses.forEach(b => {
+        const alias = idToAlias[b.user_id];
+        if (!alias) return;
+        bonusMap[alias] = {
+          campeon: b.campeon || "", subcampeon: b.subcampeon || "",
+          goleador: b.goleador || "", mvp: b.mvp || "", portero: b.portero || "",
+        };
+      });
+      window.QUINIELA_DATA.PARTICIPANT_BONUS = bonusMap;
+      setParticipantsLoaded(t => !t); // trigger re-render
+
+      if (user.role !== "admin") {
+        const predsRes  = results[2];
+        const bonusRes  = results[3];
+        if (predsRes?.status === "fulfilled") {
+          const rows = predsRes.value.predictions || [];
+          const map = {};
+          rows.forEach(r => { map[r.match_id] = { home: String(r.home_score), away: String(r.away_score) }; });
+          setPredictions(map);
+        }
+        if (bonusRes?.status === "fulfilled" && bonusRes.value.bonus) {
+          const b = bonusRes.value.bonus;
+          setBonus({ campeon: b.campeon || "", subcampeon: b.subcampeon || "", goleador: b.goleador || "", mvp: b.mvp || "", portero: b.portero || "" });
+        }
       }
     });
   }, [user]);

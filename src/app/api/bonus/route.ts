@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
-// Bonuses close June 11, 2026 at 20:00 Spain (UTC+2) = 18:00 UTC
-const BONUS_DEADLINE = new Date("2026-06-11T18:00:00Z");
+const nullableStr = z.string().max(200).transform(v => v.trim() || null).nullable().optional();
 
 const schema = z.object({
-  campeon: z.string().min(1).max(100).nullish(),
-  subcampeon: z.string().min(1).max(100).nullish(),
-  goleador: z.string().min(1).max(100).nullish(),
-  mvp: z.string().min(1).max(100).nullish(),
-  portero: z.string().min(1).max(100).nullish(),
+  campeon:    nullableStr,
+  subcampeon: nullableStr,
+  goleador:   nullableStr,
+  mvp:        nullableStr,
+  portero:    nullableStr,
 });
+
+async function isBonusOpen(): Promise<boolean> {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("phase_settings")
+    .select("is_open")
+    .eq("id", "bonus")
+    .single();
+  return data?.is_open ?? false;
+}
 
 export async function GET() {
   const { user, error } = await requireAuth();
@@ -25,22 +35,18 @@ export async function GET() {
     .eq("user_id", user!.id)
     .single();
 
-  return NextResponse.json({
-    bonus: data ?? null,
-    deadline: BONUS_DEADLINE.toISOString(),
-    closed: new Date() >= BONUS_DEADLINE,
-  });
+  const open = await isBonusOpen();
+
+  return NextResponse.json({ bonus: data ?? null, closed: !open });
 }
 
 export async function PUT(req: NextRequest) {
   const { user, error } = await requireAuth();
   if (error) return error;
 
-  if (new Date() >= BONUS_DEADLINE) {
-    return NextResponse.json(
-      { error: "Los bonus ya están cerrados" },
-      { status: 409 }
-    );
+  const open = await isBonusOpen();
+  if (!open) {
+    return NextResponse.json({ error: "Los bonus están cerrados" }, { status: 409 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -52,12 +58,12 @@ export async function PUT(req: NextRequest) {
   const supabase = await createClient();
   const { error: dbError } = await supabase.from("bonuses").upsert(
     {
-      user_id: user!.id,
-      campeon: parsed.data.campeon ?? null,
+      user_id:    user!.id,
+      campeon:    parsed.data.campeon    ?? null,
       subcampeon: parsed.data.subcampeon ?? null,
-      goleador: parsed.data.goleador ?? null,
-      mvp: parsed.data.mvp ?? null,
-      portero: parsed.data.portero ?? null,
+      goleador:   parsed.data.goleador   ?? null,
+      mvp:        parsed.data.mvp        ?? null,
+      portero:    parsed.data.portero    ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
