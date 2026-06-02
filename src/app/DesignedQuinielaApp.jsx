@@ -1191,7 +1191,7 @@ function LeaderboardScreen({ currentUser, realResults }) {
                 </span>
               </div>
               <div className="cw-name">
-                <div className="user-avatar small">{p.initials}</div>
+
                 <div className="cw-name-text">
                   <div className={`cw-name-main ${p.isMe ? "me" : ""}`}>
                     {p.name}
@@ -1439,7 +1439,7 @@ function AdminLeaderboardTab({ participants, matches, realResults }) {
                 <span className={`pos-chip ${i < 3 ? `top-${i+1}` : ""}`}>{i+1}</span>
               </div>
               <div className="cw-name">
-                <div className="user-avatar small">{p.initials}</div>
+
                 <div className="cw-name-text">
                   <div className="cw-name-main">{p.name}</div>
                   <div className="cw-name-sub">@{p.user}</div>
@@ -1964,7 +1964,7 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
           ) : filtered.map(u => (
             <div className="user-card" key={u.id}>
               <div className="user-card-head">
-                <div className={`user-avatar ${u.paid ? "" : ""}`}>{u.initials || u.user.slice(0,2).toUpperCase()}</div>
+
                 <div className="user-card-info">
                   <div className="user-card-name">
                     {u.name || u.user}
@@ -2376,7 +2376,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
                   <tr key={p.user} className={p.isMe ? "me" : ""}>
                     <td className="cell-player">
                       <div className="cell-player-inner">
-                        <div className="user-avatar small">{p.initials}</div>
+
                         <div style={{minWidth: 0}}>
                           <div className="pname">{p.name}</div>
                           <div className="ppts">
@@ -2551,7 +2551,7 @@ function ParticipantBonusTab({ participantBonus, officialBonus, participants }) 
                   <tr key={p.user} className={p.isMe ? "me" : ""}>
                     <td className="cell-player">
                       <div className="cell-player-inner">
-                        <div className="user-avatar small">{p.initials}</div>
+
                         <div style={{minWidth: 0}}>
                           <div className="pname">{p.name}</div>
                           <div className="ppts">@{p.user} · {p.completados}/5 elegidos</div>
