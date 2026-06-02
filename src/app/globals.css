@@ -112,6 +112,7 @@ input, select, textarea { font-family: inherit; }
   transform: translateX(-50%);
   width: 100%;
   max-width: 440px;
+  grid-template-columns: repeat(6, 1fr);
 }
 .bottomnav button {
   background: none; border: 0;
