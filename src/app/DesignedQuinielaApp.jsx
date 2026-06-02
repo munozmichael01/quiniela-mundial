@@ -2597,7 +2597,28 @@ window.AdminScreen = AdminScreen;
 
 function DesignedOriginalApp() {
   const [user, setUser] = React.useState(null);
+  const [sessionChecked, setSessionChecked] = React.useState(false);
   const [tab, setTab] = React.useState("predictions");
+
+  // Restore session from cookie on mount
+  React.useEffect(() => {
+    api("/api/auth/me").then(({ user: profile }) => {
+      if (profile) {
+        setUser({
+          id: profile.id,
+          name: profile.nombre,
+          role: profile.role,
+          initials: toInitials(profile.nombre),
+          user: profile.alias,
+          email: profile.email,
+        });
+      }
+    }).catch(() => {}).finally(() => setSessionChecked(true));
+  }, []);
+
+  if (!sessionChecked) {
+    return <div className="login-shell" style={{display:"grid",placeItems:"center"}}><div className="topbar-logo" style={{width:48,height:48}}>Q26</div></div>;
+  }
 
   // Shared app state
   const [predictions, setPredictions] = React.useState(() => buildSeedPredictions());
