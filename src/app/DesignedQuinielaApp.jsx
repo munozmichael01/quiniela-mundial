@@ -2796,7 +2796,7 @@ function DesignedOriginalApp() {
           </button>
         </div>
       ) : (
-        <div className="bottomnav" style={{gridTemplateColumns: "repeat(6, 1fr)"}}>
+        <div className="bottomnav bottomnav-user" style={{gridTemplateColumns: "repeat(6, 1fr)"}}>
           <button className={tab === "predictions" ? "active" : ""} onClick={() => setTab("predictions")}>
             <span className="nav-icon">
               <Icon.List size={20}/>
