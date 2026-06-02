@@ -682,8 +682,8 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
     return { done, total: inGroup.length };
   }
 
-  // Phase tab counts
-  const phaseCounts = PHASES.map(ph => {
+  // Phase tab counts (bonus excluded — it has its own section)
+  const phaseCounts = PHASES.filter(ph => ph.id !== "bonus").map(ph => {
     const inPhase = MATCHES.filter(m => matchPhase(m) === ph.id);
     const done = inPhase.filter(m => {
       const p = predictions[m.id];
