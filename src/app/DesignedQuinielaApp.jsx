@@ -276,7 +276,7 @@ window.scorePrediction = function(pred, real) {
 // Aggregate stats for a participant
 window.aggregateStats = function(predictions, realResults) {
   let exactos = 0, parciales = 0, signos = 0, fallos = 0, completados = 0, pts = 0;
-  MATCHES.forEach(m => {
+  (window.QUINIELA_DATA?.MATCHES || MATCHES).forEach(m => {
     const p = predictions[m.id];
     if (p && p.home !== "" && p.away !== "") completados++;
     const s = window.scorePrediction(p, realResults[m.id]);
