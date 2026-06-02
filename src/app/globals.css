@@ -685,18 +685,77 @@ input, select, textarea { font-family: inherit; }
 .notice strong { color: #5A4307; }
 
 /* Login */
+/* ── Login shell ── */
 .login-shell {
   min-height: 100dvh;
-  display: flex; flex-direction: column;
-  padding: 32px 24px 24px;
-  background: var(--bg);
-  max-width: 440px; margin: 0 auto;
-  box-shadow: 0 0 0 1px var(--border), 0 30px 80px -30px rgba(15,23,21,.25);
+  position: relative;
+  display: block;
 }
-.login-brand {
-  display: flex; align-items: center; gap: 12px;
+
+/* Mobile: stadium bg covers full screen */
+.login-mobile-bg {
+  position: fixed;
+  inset: 0;
+  background: url('/stadium.jpg') center center / cover no-repeat;
+  z-index: 0;
+}
+.login-mobile-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(5,30,20,0.45) 0%,
+    rgba(5,30,20,0.55) 40%,
+    rgba(5,30,20,0.82) 100%
+  );
+}
+.login-mobile-content {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 52px 24px 36px;
+}
+.login-mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: auto;
 }
+.login-mobile-hero {
+  margin: 32px 0 28px;
+}
+.login-mobile-hero h1 {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0 0 10px;
+  color: white;
+}
+.login-mobile-hero p {
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+  margin: 0;
+}
+.login-mobile-form .input {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.25);
+  color: white;
+}
+.login-mobile-form .input::placeholder { color: rgba(255,255,255,0.4); }
+.login-mobile-form .input:focus {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.5);
+}
+
+/* Desktop: hide mobile elements */
+.login-brand     { display: none; }
+.login-hero      { display: none; }
+.login-hero-side { display: none; }
+.login-form-side { display: none; }
 .login-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -704,16 +763,6 @@ input, select, textarea { font-family: inherit; }
   padding: 28px 22px;
   margin-bottom: 24px;
 }
-.login-hero {
-  margin: 40px 0 28px;
-}
-.login-hero h1 {
-  font-size: 32px; font-weight: 800;
-  letter-spacing: -0.03em;
-  margin: 0 0 10px;
-  line-height: 1.05;
-}
-.login-hero p { color: var(--ink-2); margin: 0; font-size: 14px; }
 .error-msg {
   display: flex; gap: 8px; align-items: center;
   background: #FCEFEC;
@@ -1604,6 +1653,12 @@ input, select, textarea { font-family: inherit; }
     gap: 0;
     padding: 0;
   }
+  /* Hide mobile-only elements on desktop */
+  .login-mobile-bg,
+  .login-mobile-content { display: none; }
+  /* Show desktop-only elements */
+  .login-hero-side { display: flex; }
+  .login-form-side { display: flex; }
   .login-hero-side {
     grid-column: 1;
     grid-row: 1;

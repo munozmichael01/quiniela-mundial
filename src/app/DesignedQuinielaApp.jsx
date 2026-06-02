@@ -3130,6 +3130,7 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div className="login-shell">
+      {/* Desktop left panel */}
       <div className="login-hero-side">
         <div className="login-brand-desktop">
           <div className="topbar-logo" style={{width: 40, height: 40, borderRadius: 11, fontSize: 16}}>Q26</div>
@@ -3148,18 +3149,60 @@ function LoginScreen({ onLogin }) {
           <div><div className="stat-num">12</div><div className="stat-cap">Grupos</div></div>
         </div>
       </div>
-      <div className="login-brand">
-        <div className="topbar-logo" style={{width: 40, height: 40, borderRadius: 11, fontSize: 16}}>Q26</div>
-        <div><div className="topbar-title" style={{fontSize: 15}}>Quiniela</div><div className="topbar-sub" style={{fontSize: 10}}>Mundial 2026</div></div>
+
+      {/* Mobile: full-screen stadium background + form */}
+      <div className="login-mobile-bg"/>
+      <div className="login-mobile-content">
+        <div className="login-mobile-brand">
+          <div className="topbar-logo" style={{width: 44, height: 44, borderRadius: 13, fontSize: 17}}>Q26</div>
+          <div>
+            <div style={{fontWeight: 800, fontSize: 16, color: "white"}}>Quiniela</div>
+            <div style={{fontSize: 11, color: "rgba(255,255,255,0.7)"}}>Mundial 2026</div>
+          </div>
+        </div>
+        <div className="login-mobile-hero">
+          <h1>Acierta.<br/>Suma.<br/>Quédate arriba.</h1>
+          <p>Predice los resultados del Mundial 2026 y compite con tus amigos.</p>
+        </div>
+        <form className="login-mobile-form" onSubmit={submit}>
+          {err && <div className="error-msg"><Icon.Alert size={14}/><span>{err}</span></div>}
+          <div className="field" style={{marginBottom: 12}}>
+            <label className="label" style={{color: "rgba(255,255,255,0.8)"}}>Usuario</label>
+            <input className={`input ${err ? "error" : ""}`} type="text" placeholder="tu.usuario"
+              value={user} onChange={e => setUser(e.target.value)} autoCapitalize="none" autoCorrect="off"/>
+          </div>
+          <div className="field" style={{marginBottom: 20}}>
+            <label className="label" style={{color: "rgba(255,255,255,0.8)"}}>Contraseña</label>
+            <input className={`input ${err ? "error" : ""}`} type="password" placeholder="••••••••"
+              value={pass} onChange={e => setPass(e.target.value)}/>
+          </div>
+          <button className="btn btn-primary btn-block" type="submit" disabled={loading}>
+            {loading ? "Entrando…" : "Entrar"}
+          </button>
+          <div className="login-hint" style={{color: "rgba(255,255,255,0.55)", textAlign: "center", marginTop: 14}}>
+            ¿No tienes cuenta? Pide al admin acceso.
+          </div>
+        </form>
       </div>
-      <div className="login-hero"><h1>Acierta. Suma.<br/>Quédate arriba.</h1><p>Predice los resultados del Mundial 2026 y compite con tus amigos.</p></div>
+
+      {/* Desktop right panel form */}
       <div className="login-form-side">
         <div className="login-form-card">
           <form className="login-card" onSubmit={submit}>
             {err && <div className="error-msg"><Icon.Alert size={14}/><span>{err}</span></div>}
-            <div className="field" style={{marginBottom: 14}}><label className="label">Usuario</label><input className={`input ${err ? "error" : ""}`} type="text" placeholder="admin" value={user} onChange={e => setUser(e.target.value)} autoCapitalize="none" autoCorrect="off"/></div>
-            <div className="field" style={{marginBottom: 20}}><label className="label">Contraseña</label><input className={`input ${err ? "error" : ""}`} type="password" placeholder="••••••••" value={pass} onChange={e => setPass(e.target.value)}/></div>
-            <button className="btn btn-primary btn-block" type="submit" disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
+            <div className="field" style={{marginBottom: 14}}>
+              <label className="label">Usuario</label>
+              <input className={`input ${err ? "error" : ""}`} type="text" placeholder="tu.usuario"
+                value={user} onChange={e => setUser(e.target.value)} autoCapitalize="none" autoCorrect="off"/>
+            </div>
+            <div className="field" style={{marginBottom: 20}}>
+              <label className="label">Contraseña</label>
+              <input className={`input ${err ? "error" : ""}`} type="password" placeholder="••••••••"
+                value={pass} onChange={e => setPass(e.target.value)}/>
+            </div>
+            <button className="btn btn-primary btn-block" type="submit" disabled={loading}>
+              {loading ? "Entrando…" : "Entrar"}
+            </button>
             <div className="login-hint">¿No tienes cuenta? Pide al admin que te dé acceso.</div>
           </form>
         </div>
