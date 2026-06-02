@@ -2615,6 +2615,7 @@ window.AdminScreen = AdminScreen;
 
 function DesignedOriginalApp() {
   const [user, setUser] = React.useState(null);
+  const [sessionChecked, setSessionChecked] = React.useState(false);
   const [tab, setTab] = React.useState("predictions");
 
   // Shared app state
@@ -2644,6 +2645,31 @@ function DesignedOriginalApp() {
   const [users, setUsers] = React.useState(() =>
     window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u }))
   );
+
+  // Restore session on page refresh
+  React.useEffect(() => {
+    api("/api/auth/me").then(({ user: profile }) => {
+      if (profile) {
+        const restored = {
+          id: profile.id, name: profile.nombre, role: profile.role,
+          initials: toInitials(profile.nombre), user: profile.alias, email: profile.email,
+        };
+        if (profile.role === "admin") {
+          api("/api/admin/users").then(({ users: list }) => {
+            if (list?.length) {
+              window.QUINIELA_DATA.MOCK_USERS = list.filter(u => u.role !== "admin").map((u, i) => ({
+                id: i + 1, uuid: u.id, user: u.alias, name: u.nombre,
+                email: u.email, pass: u.password || "—", paid: u.paid ?? false,
+                initials: toInitials(u.nombre),
+              }));
+              setUsers(window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u })));
+            }
+          }).catch(() => {});
+        }
+        setUser(restored);
+      }
+    }).catch(() => {}).finally(() => setSessionChecked(true));
+  }, []);
 
   // Load user data after login (needs auth session)
   const [participantsLoaded, setParticipantsLoaded] = React.useState(false);
@@ -2744,6 +2770,10 @@ function DesignedOriginalApp() {
 
   const canSeeBonus = bonus.campeon !== "" && bonus.subcampeon !== "" &&
     bonus.goleador !== "" && bonus.mvp !== "" && bonus.portero !== "";
+
+  if (!sessionChecked) {
+    return <div className="app-shell" style={{display:"grid",placeItems:"center",minHeight:"100dvh"}}><div className="topbar-logo" style={{width:48,height:48,fontSize:18}}>Q26</div></div>;
+  }
 
   if (!user) {
     return (
