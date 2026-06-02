@@ -1998,19 +1998,20 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
                   </button>
                 </div>
                 <div className="user-pass-actions">
-                  <button className="btn btn-sm btn-secondary" onClick={() => shareCreds(u)} style={{display:"flex",alignItems:"center",gap:5}}>
+                  <button className="btn btn-sm btn-secondary" onClick={() => shareCreds(u)} style={{display:"flex",alignItems:"center",gap:5,flex:1}}>
                     <Icon.Share2 size={13}/>Enviar por WhatsApp
                   </button>
+                  <button
+                    className={`paid-toggle ${u.paid ? "on" : "off"}`}
+                    disabled={readOnly}
+                    onClick={() => togglePaid(u.id)}
+                    title={u.paid ? "Marcar como no pagado" : "Marcar como pagado"}
+                    style={{flex:1}}
+                  >
+                    <span className="paid-toggle-knob"/>
+                    <span className="paid-toggle-label">{u.paid ? "Pagado" : "Sin pagar"}</span>
+                  </button>
                 </div>
-                <button
-                  className={`paid-toggle ${u.paid ? "on" : "off"}`}
-                  disabled={readOnly}
-                  onClick={() => togglePaid(u.id)}
-                  title={u.paid ? "Marcar como no pagado" : "Marcar como pagado"}
-                >
-                  <span className="paid-toggle-knob"/>
-                  <span className="paid-toggle-label">{u.paid ? "Pagado" : "Sin pagar"}</span>
-                </button>
               </div>
             </div>
           ))}
