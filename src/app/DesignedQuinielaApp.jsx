@@ -2214,10 +2214,17 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
   function setReal(matchId, side, value) {
     if (readOnly) return;
     const clean = value.replace(/[^0-9]/g, "").slice(0, 2);
-    setRealResults(prev => ({
-      ...prev,
-      [matchId]: { ...(prev[matchId] || {home:"",away:""}), [side]: clean }
-    }));
+    setRealResults(prev => {
+      const updated = { ...prev, [matchId]: { ...(prev[matchId] || {home:"",away:""}), [side]: clean } };
+      const r = updated[matchId];
+      if (r.home !== "" && r.away !== "") {
+        api("/api/admin/results", {
+          method: "PUT",
+          body: JSON.stringify({ match_id: matchId, home_score: Number(r.home), away_score: Number(r.away) }),
+        }).catch(() => {});
+      }
+      return updated;
+    });
   }
 
   return (
@@ -2601,7 +2608,7 @@ function DesignedOriginalApp() {
 
   // Shared app state
   const [predictions, setPredictions] = React.useState(() => buildSeedPredictions());
-  const [realResults, setRealResults] = React.useState(() => buildSeedReal());
+  const [realResults, setRealResults] = React.useState(() => window.QUINIELA_DATA.REAL_RESULTS || buildSeedReal());
   const [bonus, setBonus] = React.useState({
     campeon: "", subcampeon: "", goleador: "", mvp: "", portero: "",
   });
@@ -3103,6 +3110,17 @@ function applyBackendData({ matches = [], leaderboard = [], users = [], phases =
 
   if (phases.length) {
     window.QUINIELA_DATA.PHASE_OPEN = Object.fromEntries(phases.map(p => [p.id, p.is_open]));
+  }
+
+  // Build real results map from matches.results join
+  if (matches.length) {
+    const realMap = {};
+    matches.forEach(m => {
+      if (m.results && m.results.home_score != null) {
+        realMap[m.id] = { home: String(m.results.home_score), away: String(m.results.away_score) };
+      }
+    });
+    window.QUINIELA_DATA.REAL_RESULTS = realMap;
   }
 }
 
