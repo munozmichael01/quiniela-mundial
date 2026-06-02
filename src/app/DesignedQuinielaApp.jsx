@@ -132,6 +132,7 @@ const MATCHES = [...MATCHES_GROUPS, ...MATCHES_KO];
 
 // Phases meta — used by predictions screen + admin phase controls
 const PHASES = [
+  { id: "bonus",  label: "Bonus",          count: null, defaultOpen: true },
   { id: "groups", label: "Grupos",         count: 72, defaultOpen: true },
   { id: "r32",    label: "Dieciseisavos",  count: 16, defaultOpen: false },
   { id: "r16",    label: "Octavos",        count: 8,  defaultOpen: false },
@@ -2161,14 +2162,18 @@ function PhasesTab({ phaseOpen, setPhaseOpen, flash, readOnly = false, matches }
                 <div className="phase-row-info">
                   <div className="phase-row-title">
                     {ph.label}
-                    <span className="muted-2" style={{fontSize: 11, fontWeight: 500, marginLeft: 8}}>
-                      · {ph.count} {ph.count === 1 ? "partido" : "partidos"}
-                    </span>
+                    {ph.count != null && (
+                      <span className="muted-2" style={{fontSize: 11, fontWeight: 500, marginLeft: 8}}>
+                        · {ph.count} {ph.count === 1 ? "partido" : "partidos"}
+                      </span>
+                    )}
                   </div>
                   <div className="phase-row-sub">
-                    {firstKickoff
-                      ? <>Inicio: {window.formatRelative(firstKickoff)} · {new Date(firstKickoff).toUTCString().slice(5, 11)}</>
-                      : <>Sin partidos programados</>}
+                    {ph.id === "bonus"
+                      ? <>5 predicciones especiales</>
+                      : firstKickoff
+                        ? <>Inicio: {window.formatRelative(firstKickoff)} · {new Date(firstKickoff).toUTCString().slice(5, 11)}</>
+                        : <>Sin partidos programados</>}
                   </div>
                 </div>
                 <button
