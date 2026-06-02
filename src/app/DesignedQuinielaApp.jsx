@@ -2198,6 +2198,7 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
   const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
   const [phaseFilter, setPhaseFilter] = React.useState("groups");
   const [resGroup, setResGroup] = React.useState("A");
+  const [saving, setSaving] = React.useState(false);
 
   const inPhase = MATCHES.filter(m => matchPhase(m) === phaseFilter);
   const resMatches = phaseFilter === "groups"
@@ -2211,22 +2212,32 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
   function setReal(matchId, side, value) {
     if (readOnly) return;
     const clean = value.replace(/[^0-9]/g, "").slice(0, 2);
-    setRealResults(prev => {
-      const updated = { ...prev, [matchId]: { ...(prev[matchId] || {home:"",away:""}), [side]: clean } };
-      const r = updated[matchId];
+    setRealResults(prev => ({
+      ...prev,
+      [matchId]: { ...(prev[matchId] || {home:"",away:""}), [side]: clean }
+    }));
+  }
+
+  async function saveGroup() {
+    if (readOnly || saving) return;
+    setSaving(true);
+    const calls = resMatches.map(m => {
+      const r = realResults[m.id] || {home:"",away:""};
       if (r.home !== "" && r.away !== "") {
-        api("/api/admin/results", {
+        return api("/api/admin/results", {
           method: "PUT",
-          body: JSON.stringify({ match_id: matchId, home_score: Number(r.home), away_score: Number(r.away) }),
-        }).catch(() => {});
+          body: JSON.stringify({ match_id: m.id, home_score: Number(r.home), away_score: Number(r.away) }),
+        });
       } else if (r.home === "" && r.away === "") {
-        api("/api/admin/results", {
+        return api("/api/admin/results", {
           method: "DELETE",
-          body: JSON.stringify({ match_id: matchId }),
-        }).catch(() => {});
+          body: JSON.stringify({ match_id: m.id }),
+        });
       }
-      return updated;
+      return Promise.resolve();
     });
+    await Promise.all(calls).catch(() => {});
+    setSaving(false);
   }
 
   return (
@@ -2258,6 +2269,11 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
       )}
 
       <div className="section" style={{paddingTop: 8}}>
+        {!readOnly && (
+          <button className="btn btn-primary" style={{width:"100%", marginBottom: 10}} onClick={saveGroup} disabled={saving}>
+            {saving ? "Guardando…" : "Guardar resultados"}
+          </button>
+        )}
         <div className="card">
           {resMatches.map(m => {
             const r = realResults[m.id] || {home:"",away:""};
