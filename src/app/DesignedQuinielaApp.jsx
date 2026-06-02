@@ -2219,6 +2219,11 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
           method: "PUT",
           body: JSON.stringify({ match_id: matchId, home_score: Number(r.home), away_score: Number(r.away) }),
         }).catch(() => {});
+      } else if (r.home === "" && r.away === "") {
+        api("/api/admin/results", {
+          method: "DELETE",
+          body: JSON.stringify({ match_id: matchId }),
+        }).catch(() => {});
       }
       return updated;
     });

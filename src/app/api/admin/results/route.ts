@@ -31,3 +31,18 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
+  const { match_id } = await req.json().catch(() => ({}));
+  if (!match_id) return NextResponse.json({ error: "match_id requerido" }, { status: 400 });
+
+  const supabase = createServiceClient();
+  const { error: dbError } = await supabase.from("results").delete().eq("match_id", match_id);
+
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
