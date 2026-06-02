@@ -1547,11 +1547,15 @@ input, select, textarea { font-family: inherit; }
   }
 
   /* Bottom nav transforms into a left sidebar */
-  .bottomnav {
+  .bottomnav,
+  .bottomnav-user {
     position: relative;
     grid-column: 1;
     grid-row: 1;
     inset: auto;
+    transform: none;
+    width: auto;
+    max-width: none;
     display: flex;
     flex-direction: column;
     align-items: stretch;
