@@ -922,12 +922,10 @@ window.PredictionsScreen = PredictionsScreen;
 // Mis aciertos — vista personal del usuario autenticado
 
 function MisAciertosScreen({ predictions, realResults }) {
-  const { MATCHES } = window.QUINIELA_DATA;
   const [filter, setFilter] = React.useState("all"); // all | acertados | pendientes
 
-  // Build entries for predictions the user has made
   const entries = React.useMemo(() => {
-    return MATCHES
+    return (window.QUINIELA_DATA.MATCHES || [])
       .filter(m => {
         const p = predictions[m.id];
         return p && p.home !== "" && p.away !== "";
@@ -1092,18 +1090,17 @@ window.MisAciertosScreen = MisAciertosScreen;
 
 // Tabla de clasificación — accesible para todos los usuarios
 
-function LeaderboardScreen({ currentUser, realResults }) {
-  const { PARTICIPANTS, MATCHES } = window.QUINIELA_DATA;
+function LeaderboardScreen({ currentUser, realResults, participantsKey }) {
   const [sortBy, setSortBy] = React.useState("pts");
 
-  // Compute live stats for each participant using their seed predictions
   const enriched = React.useMemo(() => {
+    const PARTICIPANTS = window.QUINIELA_DATA.PARTICIPANTS;
     return PARTICIPANTS.map(p => {
       const stats = window.aggregateStats(p.predictions, realResults);
       const isMe = currentUser && currentUser.user === p.user;
       return { ...p, ...stats, isMe };
     });
-  }, [realResults, currentUser]);
+  }, [realResults, currentUser, participantsKey]);
 
   const sorted = React.useMemo(() => {
     const arr = [...enriched];
@@ -2777,7 +2774,7 @@ function DesignedOriginalApp() {
                 realResults={realResults}
               />
             )}
-            {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults}/>}
+            {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults} participantsKey={participantsLoaded}/>}
             {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus} phaseOpen={phaseOpen}/>}
             {tab === "matrix" && (canSeeMatrix
               ? <MatrixTab realResults={realResults} participants={window.QUINIELA_DATA.PARTICIPANTS} matches={window.QUINIELA_DATA.MATCHES}/>
