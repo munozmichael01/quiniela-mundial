@@ -2679,29 +2679,35 @@ function DesignedOriginalApp() {
       api("/api/predictions/all"),
       api("/api/bonus/all"),
     ];
-    if (user.role !== "admin") {
-      calls.push(api("/api/users/public"));
-      calls.push(api("/api/predictions"));
-      calls.push(api("/api/bonus"));
+    if (user.role === "admin") {
+      calls.push(api("/api/admin/users")); // index 2
+    } else {
+      calls.push(api("/api/users/public")); // index 2
+      calls.push(api("/api/predictions"));  // index 3
+      calls.push(api("/api/bonus"));        // index 4
     }
     Promise.allSettled(calls).then((results) => {
       const allPreds   = results[0].status === "fulfilled" ? results[0].value.predictions : [];
       const allBonuses = results[1].status === "fulfilled" ? results[1].value.bonuses : [];
 
-      // Rebuild PARTICIPANTS.predictions and PARTICIPANT_BONUS with real data
       const idToAlias = {};
-      if (user.role !== "admin") {
-        // Non-admin: build mapping from public users endpoint (result index 2)
+      if (user.role === "admin") {
+        const adminUsers = results[2]?.status === "fulfilled" ? results[2].value.users : [];
+        const nonAdmins = adminUsers.filter(u => u.role !== "admin");
+        window.QUINIELA_DATA.MOCK_USERS = nonAdmins.map((u, i) => ({
+          id: i + 1, uuid: u.id, user: u.alias, name: u.nombre,
+          email: u.email, pass: u.password || "—", paid: u.paid ?? false,
+          initials: toInitials(u.nombre),
+        }));
+        setUsers(window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u })));
+        window.QUINIELA_DATA.MOCK_USERS.forEach(u => { idToAlias[u.uuid] = u.user; });
+      } else {
         const publicUsers = results[2]?.status === "fulfilled" ? results[2].value.users : [];
         publicUsers.forEach(u => { idToAlias[u.id] = u.alias; });
-        // Rebuild PARTICIPANTS list from public users
         window.QUINIELA_DATA.PARTICIPANTS = publicUsers.map(u => ({
           name: u.nombre, user: u.alias,
           initials: toInitials(u.nombre), predictions: {},
         }));
-      } else {
-        const usersSnap = window.QUINIELA_DATA.MOCK_USERS;
-        usersSnap.forEach(u => { idToAlias[u.uuid] = u.user; });
       }
 
       const predsByAlias = {};
