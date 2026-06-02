@@ -405,7 +405,7 @@ input, select, textarea { font-family: inherit; }
 }
 .lb-wide-head, .lb-wide-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 44px 36px 32px 32px 56px;
+  grid-template-columns: 160px 44px 36px 32px 32px 56px;
   gap: 0;
   padding: 0;
   align-items: center;
@@ -436,7 +436,10 @@ input, select, textarea { font-family: inherit; }
   background: var(--surface);
   z-index: 1;
   border-right: 1px solid var(--border);
-  min-width: 150px;
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
+  overflow: hidden;
 }
 .lb-wide-row.me .cw-identity {
   background: var(--primary-soft);
@@ -1671,9 +1674,9 @@ input, select, textarea { font-family: inherit; }
 
   /* Wide leaderboard: slightly bigger columns on desktop */
   .lb-wide-head, .lb-wide-row {
-    grid-template-columns: minmax(180px, 1fr) 64px 50px 50px 50px 78px;
+    grid-template-columns: 200px 64px 50px 50px 50px 78px;
   }
-  .cw-identity { min-width: 180px; padding: 12px 10px 12px 18px; }
+  .cw-identity { width: 200px; min-width: 200px; max-width: 200px; padding: 12px 10px 12px 18px; }
   .lb-wide-head .cw-identity { padding-left: 18px; }
   .cw-pts { padding: 12px 6px; font-size: 15px; }
   .cw-stat, .cw-bon, .cw-comp { padding: 12px 6px; }
