@@ -1202,7 +1202,7 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey }) {
               <div className="cw-stat ex">{p.exactos}</div>
               <div className="cw-stat pc">{p.parciales}</div>
               <div className="cw-stat sg">{p.signos}</div>
-              <div className="cw-comp">{p.completados}/{MATCHES.length}</div>
+              <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
             </div>
           ))}
         </div>
@@ -1447,7 +1447,7 @@ function AdminLeaderboardTab({ participants, matches, realResults }) {
               <div className="cw-stat ex">{p.exactos}</div>
               <div className="cw-stat pc">{p.parciales}</div>
               <div className="cw-stat sg">{p.signos}</div>
-              <div className="cw-comp">{p.completados}/{MATCHES.length}</div>
+              <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
             </div>
           ))}
         </div>
