@@ -2636,6 +2636,7 @@ function DesignedOriginalApp() {
       api("/api/bonus/all"),
     ];
     if (user.role !== "admin") {
+      calls.push(api("/api/users/public"));
       calls.push(api("/api/predictions"));
       calls.push(api("/api/bonus"));
     }
@@ -2644,9 +2645,20 @@ function DesignedOriginalApp() {
       const allBonuses = results[1].status === "fulfilled" ? results[1].value.bonuses : [];
 
       // Rebuild PARTICIPANTS.predictions and PARTICIPANT_BONUS with real data
-      const usersSnap = window.QUINIELA_DATA.MOCK_USERS;
       const idToAlias = {};
-      usersSnap.forEach(u => { idToAlias[u.uuid] = u.user; });
+      if (user.role !== "admin") {
+        // Non-admin: build mapping from public users endpoint (result index 2)
+        const publicUsers = results[2]?.status === "fulfilled" ? results[2].value.users : [];
+        publicUsers.forEach(u => { idToAlias[u.id] = u.alias; });
+        // Rebuild PARTICIPANTS list from public users
+        window.QUINIELA_DATA.PARTICIPANTS = publicUsers.map(u => ({
+          name: u.nombre, user: u.alias,
+          initials: toInitials(u.nombre), predictions: {},
+        }));
+      } else {
+        const usersSnap = window.QUINIELA_DATA.MOCK_USERS;
+        usersSnap.forEach(u => { idToAlias[u.uuid] = u.user; });
+      }
 
       const predsByAlias = {};
       allPreds.forEach(p => {
@@ -2674,8 +2686,8 @@ function DesignedOriginalApp() {
       setParticipantsLoaded(t => !t);
 
       if (user.role !== "admin") {
-        const predsRes  = results[2];
-        const bonusRes  = results[3];
+        const predsRes  = results[3];
+        const bonusRes  = results[4];
         if (predsRes?.status === "fulfilled") {
           const rows = predsRes.value.predictions || [];
           const map = {};
