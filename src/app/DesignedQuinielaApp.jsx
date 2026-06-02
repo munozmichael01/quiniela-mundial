@@ -2613,7 +2613,7 @@ function DesignedOriginalApp() {
     portero: "",
   });
   // Bonus picks de cada participante — datos reales del backend
-  const [participantBonus] = React.useState(() => window.QUINIELA_DATA.PARTICIPANT_BONUS || {});
+  const [participantBonus, setParticipantBonus] = React.useState(() => window.QUINIELA_DATA.PARTICIPANT_BONUS || {});
   // Phase open state — usa valores del backend si están disponibles, si no defaultOpen
   const [phaseOpen, setPhaseOpen] = React.useState(() => {
     const fromBackend = window.QUINIELA_DATA.PHASE_OPEN || {};
@@ -2670,7 +2670,8 @@ function DesignedOriginalApp() {
         };
       });
       window.QUINIELA_DATA.PARTICIPANT_BONUS = bonusMap;
-      setParticipantsLoaded(t => !t); // trigger re-render
+      setParticipantBonus(bonusMap);
+      setParticipantsLoaded(t => !t);
 
       if (user.role !== "admin") {
         const predsRes  = results[2];
