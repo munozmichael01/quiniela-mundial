@@ -400,12 +400,17 @@ input, select, textarea { font-family: inherit; }
   border-radius: var(--radius);
   overflow: hidden;
 }
+.lb-scroll {
+  overflow-x: auto;
+}
 .lb-wide-head, .lb-wide-row {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 44px 36px 32px 32px 56px;
-  gap: 6px;
-  padding: 10px 12px;
+  grid-template-columns: minmax(150px, 1fr) 44px 36px 32px 32px 56px;
+  gap: 0;
+  padding: 0;
   align-items: center;
+  min-width: max-content;
+  width: 100%;
 }
 .lb-wide-head {
   font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
@@ -413,15 +418,32 @@ input, select, textarea { font-family: inherit; }
   border-bottom: 1px solid var(--border);
   background: #FAFBF9;
 }
-.lb-wide-head > div { text-align: center; }
-.lb-wide-head .cw-name { text-align: left; padding-left: 4px; }
+.lb-wide-head > div { text-align: center; padding: 10px 4px; }
+.lb-wide-head .cw-identity { text-align: left; padding-left: 12px; }
 .lb-wide-row {
   border-bottom: 1px solid var(--border);
   font-size: 12.5px;
 }
 .lb-wide-row:last-child { border-bottom: 0; }
 .lb-wide-row.me { background: var(--primary-soft); }
-.cw-pos { text-align: center; }
+.cw-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 10px 12px;
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
+  border-right: 1px solid var(--border);
+  min-width: 150px;
+}
+.lb-wide-row.me .cw-identity {
+  background: var(--primary-soft);
+}
+.lb-wide-head .cw-identity {
+  background: #FAFBF9;
+}
 .pos-chip {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 26px; height: 26px; padding: 0 6px;
@@ -472,6 +494,10 @@ input, select, textarea { font-family: inherit; }
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   font-size: 14px;
+  padding: 10px 4px;
+}
+.cw-stat, .cw-bon, .cw-comp {
+  padding: 10px 4px;
 }
 .cw-bon {
   text-align: center;
@@ -1643,14 +1669,15 @@ input, select, textarea { font-family: inherit; }
   .match-row { padding: 14px 20px; gap: 16px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
   .match-row .match-team .name { font-size: 14px; }
 
-  /* Wide leaderboard: extra column widths */
+  /* Wide leaderboard: slightly bigger columns on desktop */
   .lb-wide-head, .lb-wide-row {
-    grid-template-columns: 44px minmax(0, 1fr) 64px 50px 50px 50px 78px;
-    padding: 12px 18px;
-    gap: 10px;
+    grid-template-columns: minmax(180px, 1fr) 64px 50px 50px 50px 78px;
   }
+  .cw-identity { min-width: 180px; padding: 12px 10px 12px 18px; }
+  .lb-wide-head .cw-identity { padding-left: 18px; }
+  .cw-pts { padding: 12px 6px; font-size: 15px; }
+  .cw-stat, .cw-bon, .cw-comp { padding: 12px 6px; }
   .cw-name-main { font-size: 13.5px; }
-  .cw-pts { font-size: 15px; }
 
   /* Matrix player column: wider on desktop */
   .matrix-table thead th.head-player,

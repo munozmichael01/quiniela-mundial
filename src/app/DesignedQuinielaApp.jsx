@@ -1179,38 +1179,35 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
 
       <div className="section" style={{paddingTop: 8}}>
         <div className="lb-wide">
-          <div className="lb-wide-head">
-            <div className="cw-pos">Pos</div>
-            <div className="cw-name">Participante</div>
-            <div className="cw-pts">Pts</div>
-            <div className="cw-bon">Bon</div>
-            <div className="cw-stat">Ex</div>
-            <div className="cw-stat">Pc</div>
-            <div className="cw-comp">Comp</div>
-          </div>
-          {sorted.map((p, i) => (
-            <div key={p.user} className={`lb-wide-row ${p.isMe ? "me" : ""}`}>
-              <div className="cw-pos">
-                <span className={`pos-chip ${i < 3 ? `top-${i+1}` : ""} ${p.isMe ? "me" : ""}`}>
-                  {i + 1}
-                </span>
-              </div>
-              <div className="cw-name">
-                <div className="cw-name-text">
-                  <div className={`cw-name-main ${p.isMe ? "me" : ""}`}>
-                    {p.name}
-                    {i === 0 && <span className="crown">👑</span>}
-                  </div>
-                  <div className="cw-name-sub">@{p.user}</div>
-                </div>
-              </div>
-              <div className="cw-pts">{p.pts}</div>
-              <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
-              <div className="cw-stat ex">{p.exactos}</div>
-              <div className="cw-stat pc">{p.parciales}</div>
-              <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
+          <div className="lb-scroll">
+            <div className="lb-wide-head">
+              <div className="cw-identity">Participante</div>
+              <div className="cw-pts">Pts</div>
+              <div className="cw-bon">Bon</div>
+              <div className="cw-stat">Ex</div>
+              <div className="cw-stat">Pc</div>
+              <div className="cw-comp">Comp</div>
             </div>
-          ))}
+            {sorted.map((p, i) => (
+              <div key={p.user} className={`lb-wide-row ${p.isMe ? "me" : ""}`}>
+                <div className="cw-identity">
+                  <span className={`pos-chip ${i < 3 ? `top-${i+1}` : ""} ${p.isMe ? "me" : ""}`}>{i + 1}</span>
+                  <div className="cw-name-text">
+                    <div className={`cw-name-main ${p.isMe ? "me" : ""}`}>
+                      {p.name}
+                      {i === 0 && <span className="crown">👑</span>}
+                    </div>
+                    <div className="cw-name-sub">@{p.user}</div>
+                  </div>
+                </div>
+                <div className="cw-pts">{p.pts}</div>
+                <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
+                <div className="cw-stat ex">{p.exactos}</div>
+                <div className="cw-stat pc">{p.parciales}</div>
+                <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="muted-2" style={{marginTop: 14, fontSize: 11, textAlign: "center", lineHeight: 1.6}}>
@@ -1431,33 +1428,32 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
 
       <div className="section" style={{paddingTop: 8}}>
         <div className="lb-wide">
-          <div className="lb-wide-head">
-            <div className="cw-pos">Pos</div>
-            <div className="cw-name">Participante</div>
-            <div className="cw-pts">Pts</div>
-            <div className="cw-bon">Bon</div>
-            <div className="cw-stat">Ex</div>
-            <div className="cw-stat">Pc</div>
-            <div className="cw-comp">Comp</div>
-          </div>
-          {sorted.map((p, i) => (
-            <div key={p.user} className="lb-wide-row">
-              <div className="cw-pos">
-                <span className={`pos-chip ${i < 3 ? `top-${i+1}` : ""}`}>{i+1}</span>
-              </div>
-              <div className="cw-name">
-                <div className="cw-name-text">
-                  <div className="cw-name-main">{p.name}</div>
-                  <div className="cw-name-sub">@{p.user}</div>
-                </div>
-              </div>
-              <div className="cw-pts">{p.pts}</div>
-              <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
-              <div className="cw-stat ex">{p.exactos}</div>
-              <div className="cw-stat pc">{p.parciales}</div>
-              <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
+          <div className="lb-scroll">
+            <div className="lb-wide-head">
+              <div className="cw-identity">Participante</div>
+              <div className="cw-pts">Pts</div>
+              <div className="cw-bon">Bon</div>
+              <div className="cw-stat">Ex</div>
+              <div className="cw-stat">Pc</div>
+              <div className="cw-comp">Comp</div>
             </div>
-          ))}
+            {sorted.map((p, i) => (
+              <div key={p.user} className="lb-wide-row">
+                <div className="cw-identity">
+                  <span className={`pos-chip ${i < 3 ? `top-${i+1}` : ""}`}>{i+1}</span>
+                  <div className="cw-name-text">
+                    <div className="cw-name-main">{p.name}</div>
+                    <div className="cw-name-sub">@{p.user}</div>
+                  </div>
+                </div>
+                <div className="cw-pts">{p.pts}</div>
+                <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
+                <div className="cw-stat ex">{p.exactos}</div>
+                <div className="cw-stat pc">{p.parciales}</div>
+                <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
+              </div>
+            ))}
+          </div>
         </div>
         {enriched.length === 0 && (
           <div className="empty"><div className="empty-icon"><Icon.Rank size={24}/></div><div className="empty-title">Sin participantes aún</div></div>
