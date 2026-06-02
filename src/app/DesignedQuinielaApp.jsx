@@ -259,34 +259,31 @@ window.formatRelative = (iso) => {
   return `${date.getDate()} ${months[date.getMonth()]}`;
 };
 
-// Scoring: exacto = 3, parcial (acierta diferencia de goles) = 2, signo (gana/empata) = 1
-// Devuelve { type: 'exacto' | 'parcial' | 'signo' | 'fallo' | null, pts: 0-3 }
+// Scoring: exacto = 3, parcial (mismo signo ganador/empate) = 1, fallo = 0
+// Devuelve { type: 'exacto' | 'parcial' | 'fallo' | null, pts: 0-3 }
 window.scorePrediction = function(pred, real) {
   if (!pred || !real) return { type: null, pts: 0 };
   if (pred.home === "" || pred.away === "" || pred.home == null || pred.away == null) return { type: null, pts: 0 };
   if (real.home === "" || real.away === "" || real.home == null || real.away == null) return { type: null, pts: 0 };
   const ph = +pred.home, pa = +pred.away, rh = +real.home, ra = +real.away;
   if (ph === rh && pa === ra) return { type: "exacto", pts: 3 };
-  const diffP = ph - pa, diffR = rh - ra;
-  if (diffP === diffR) return { type: "parcial", pts: 2 };
-  if (Math.sign(diffP) === Math.sign(diffR)) return { type: "signo", pts: 1 };
+  if (Math.sign(ph - pa) === Math.sign(rh - ra)) return { type: "parcial", pts: 1 };
   return { type: "fallo", pts: 0 };
 };
 
 // Aggregate stats for a participant
 window.aggregateStats = function(predictions, realResults) {
-  let exactos = 0, parciales = 0, signos = 0, fallos = 0, completados = 0, pts = 0;
+  let exactos = 0, parciales = 0, fallos = 0, completados = 0, pts = 0;
   (window.QUINIELA_DATA?.MATCHES || MATCHES).forEach(m => {
     const p = predictions[m.id];
     if (p && p.home !== "" && p.away !== "") completados++;
     const s = window.scorePrediction(p, realResults[m.id]);
     if (s.type === "exacto") exactos++;
     else if (s.type === "parcial") parciales++;
-    else if (s.type === "signo") signos++;
     else if (s.type === "fallo") fallos++;
     pts += s.pts;
   });
-  return { exactos, parciales, signos, fallos, completados, pts };
+  return { exactos, parciales, fallos, completados, pts };
 };
 
 // 5 pts por cada bonus correcto
@@ -734,7 +731,7 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
               {points}<small>pts</small>
             </div>
             <div className="muted-2" style={{marginTop: 8, fontSize: 11}}>
-              Exacto +3 · Parcial +2 · Signo +1
+              Exacto +3 · Parcial +1
             </div>
           </div>
         </div>
@@ -952,7 +949,7 @@ function MisAciertosScreen({ predictions, realResults }) {
   }, [predictions, realResults]);
 
   const filtered = entries.filter(e => {
-    if (filter === "acertados") return ["exacto","parcial","signo"].includes(e.score.type);
+    if (filter === "acertados") return ["exacto","parcial"].includes(e.score.type);
     if (filter === "pendientes") return !e.hasReal;
     return true;
   });
@@ -961,7 +958,7 @@ function MisAciertosScreen({ predictions, realResults }) {
     if (e.score.type) acc[e.score.type] = (acc[e.score.type] || 0) + 1;
     acc.pts += e.score.pts;
     return acc;
-  }, { exacto:0, parcial:0, signo:0, fallo:0, pts:0 });
+  }, { exacto:0, parcial:0, fallo:0, pts:0 });
 
   return (
     <>
@@ -974,7 +971,7 @@ function MisAciertosScreen({ predictions, realResults }) {
       </div>
 
       <div className="section" style={{paddingBottom: 8}}>
-        <div className="stat-row" style={{gridTemplateColumns: "1.4fr 1fr 1fr 1fr"}}>
+        <div className="stat-row" style={{gridTemplateColumns: "1.4fr 1fr 1fr"}}>
           <div className="stat">
             <div className="stat-label">Puntos</div>
             <div className="stat-value">{totals.pts}<small>pts</small></div>
@@ -986,10 +983,6 @@ function MisAciertosScreen({ predictions, realResults }) {
           <div className="stat">
             <div className="stat-label">Parciales</div>
             <div className="stat-value" style={{color: "#7A5C0A"}}>{totals.parcial || 0}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-label">Signos</div>
-            <div className="stat-value" style={{color: "#8A4A0E"}}>{totals.signo || 0}</div>
           </div>
         </div>
       </div>
@@ -1086,7 +1079,7 @@ function ResultPill({ type }) {
   const labels = {
     exacto: "Exacto",
     parcial: "Parcial",
-    signo: "Signo",
+
     fallo: "Fallaste",
   };
   return (
@@ -1159,7 +1152,7 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
               {leader.name}
             </div>
             <div className="muted-2" style={{marginTop: 2}}>
-              {leader.pts} pts · {leader.exactos} exactos · {leader.parciales} parciales
+              {leader.pts} pts · {leader.exactos} ex · {leader.parciales} pc
             </div>
           </div>
           {me && (
@@ -1193,7 +1186,6 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
             <div className="cw-bon">Bon</div>
             <div className="cw-stat">Ex</div>
             <div className="cw-stat">Pc</div>
-            <div className="cw-stat">Sg</div>
             <div className="cw-comp">Comp</div>
           </div>
           {sorted.map((p, i) => (
@@ -1216,15 +1208,14 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
               <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
               <div className="cw-stat ex">{p.exactos}</div>
               <div className="cw-stat pc">{p.parciales}</div>
-              <div className="cw-stat sg">{p.signos}</div>
               <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
             </div>
           ))}
         </div>
 
         <div className="muted-2" style={{marginTop: 14, fontSize: 11, textAlign: "center", lineHeight: 1.6}}>
-          <strong>Exacto</strong> +3 pts · <strong>Parcial</strong> +2 pts · <strong>Signo</strong> +1 pt<br/>
-          <strong>Bonus</strong> +5 pts por acierto · Pts = solo partidos · Bon = puntos bonus
+          <strong>Exacto</strong> +3 pts · <strong>Parcial</strong> +1 pt · <strong>Bonus</strong> +5 pts c/u<br/>
+          Pts = partidos · Bon = bonus
         </div>
       </div>
     </>
@@ -1352,11 +1343,11 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
         <div className="card" style={{padding: "14px 16px"}}>
           <div className="section-title" style={{margin: 0, marginBottom: 8}}>Puntos bonus</div>
           <div style={{display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 13}}>
-            <div>Campeón correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+15</div>
-            <div>Subcampeón correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+8</div>
-            <div>Goleador correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+10</div>
-            <div>MVP correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+10</div>
-            <div>Mejor portero</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+7</div>
+            <div>Campeón correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
+            <div>Subcampeón correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
+            <div>Goleador correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
+            <div>MVP correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
+            <div>Mejor portero</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
           </div>
         </div>
       </div>
@@ -1447,7 +1438,6 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
             <div className="cw-bon">Bon</div>
             <div className="cw-stat">Ex</div>
             <div className="cw-stat">Pc</div>
-            <div className="cw-stat">Sg</div>
             <div className="cw-comp">Comp</div>
           </div>
           {sorted.map((p, i) => (
@@ -1465,7 +1455,6 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
               <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
               <div className="cw-stat ex">{p.exactos}</div>
               <div className="cw-stat pc">{p.parciales}</div>
-              <div className="cw-stat sg">{p.signos}</div>
               <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
             </div>
           ))}
@@ -1760,7 +1749,7 @@ function SummaryTab({ users, realResults, phaseOpen, matches, participants }) {
               <div className="dash-h-label">Va primero con</div>
               <div className="dash-h-title">{stats.leader.p.name}</div>
               <div className="dash-h-sub">
-                {stats.leader.s.pts} pts · {stats.leader.s.exactos} exactos · {stats.leader.s.parciales} parciales · {stats.leader.s.signos} signos
+                {stats.leader.s.pts} pts · {stats.leader.s.exactos} exactos · {stats.leader.s.parciales} parciales
               </div>
             </div>
           </div>
@@ -2369,8 +2358,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
       <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
         <div className="legend">
           <span className="legend-item"><span className="legend-dot cell-exacto"></span>Exacto · +3</span>
-          <span className="legend-item"><span className="legend-dot cell-parcial"></span>Parcial · +2</span>
-          <span className="legend-item"><span className="legend-dot cell-signo"></span>Signo · +1</span>
+          <span className="legend-item"><span className="legend-dot cell-parcial"></span>Parcial · +1</span>
           <span className="legend-item"><span className="legend-dot cell-fallo"></span>Fallo · 0</span>
           <span className="legend-item"><span className="legend-dot cell-pending"></span>Pendiente</span>
         </div>

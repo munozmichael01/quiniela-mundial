@@ -402,7 +402,7 @@ input, select, textarea { font-family: inherit; }
 }
 .lb-wide-head, .lb-wide-row {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 44px 36px 32px 32px 32px 56px;
+  grid-template-columns: 32px minmax(0, 1fr) 44px 36px 32px 32px 56px;
   gap: 6px;
   padding: 10px 12px;
   align-items: center;
