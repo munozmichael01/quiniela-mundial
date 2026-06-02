@@ -289,6 +289,17 @@ window.aggregateStats = function(predictions, realResults) {
   return { exactos, parciales, signos, fallos, completados, pts };
 };
 
+// 5 pts por cada bonus correcto
+const BONUS_PTS_PER_HIT = 5;
+window.BONUS_PTS_PER_HIT = BONUS_PTS_PER_HIT;
+const BONUS_FIELDS = ["campeon", "subcampeon", "goleador", "mvp", "portero"];
+window.calcBonusPts = function(picks, officialBonus) {
+  if (!picks || !officialBonus) return 0;
+  return BONUS_FIELDS.reduce((sum, key) => {
+    return sum + (picks[key] && officialBonus[key] && picks[key] === officialBonus[key] ? BONUS_PTS_PER_HIT : 0);
+  }, 0);
+};
+
 
 // Reusable icons + utility components
 
@@ -1090,17 +1101,20 @@ window.MisAciertosScreen = MisAciertosScreen;
 
 // Tabla de clasificación — accesible para todos los usuarios
 
-function LeaderboardScreen({ currentUser, realResults, participantsKey }) {
+function LeaderboardScreen({ currentUser, realResults, participantsKey, participantBonus, officialBonus }) {
   const [sortBy, setSortBy] = React.useState("pts");
 
   const enriched = React.useMemo(() => {
     const PARTICIPANTS = window.QUINIELA_DATA.PARTICIPANTS;
+    const pb = participantBonus || window.QUINIELA_DATA.PARTICIPANT_BONUS || {};
+    const ob = officialBonus || window.QUINIELA_DATA.OFFICIAL_BONUS || {};
     return PARTICIPANTS.map(p => {
       const stats = window.aggregateStats(p.predictions, realResults);
+      const bonPts = window.calcBonusPts(pb[p.user], ob);
       const isMe = currentUser && currentUser.user === p.user;
-      return { ...p, ...stats, isMe };
+      return { ...p, ...stats, bonPts, isMe };
     });
-  }, [realResults, currentUser, participantsKey]);
+  }, [realResults, currentUser, participantsKey, participantBonus, officialBonus]);
 
   const sorted = React.useMemo(() => {
     const arr = [...enriched];
@@ -1176,6 +1190,7 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey }) {
             <div className="cw-pos">Pos</div>
             <div className="cw-name">Participante</div>
             <div className="cw-pts">Pts</div>
+            <div className="cw-bon">Bon</div>
             <div className="cw-stat">Ex</div>
             <div className="cw-stat">Pc</div>
             <div className="cw-stat">Sg</div>
@@ -1189,7 +1204,6 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey }) {
                 </span>
               </div>
               <div className="cw-name">
-
                 <div className="cw-name-text">
                   <div className={`cw-name-main ${p.isMe ? "me" : ""}`}>
                     {p.name}
@@ -1199,6 +1213,7 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey }) {
                 </div>
               </div>
               <div className="cw-pts">{p.pts}</div>
+              <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
               <div className="cw-stat ex">{p.exactos}</div>
               <div className="cw-stat pc">{p.parciales}</div>
               <div className="cw-stat sg">{p.signos}</div>
@@ -1209,7 +1224,7 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey }) {
 
         <div className="muted-2" style={{marginTop: 14, fontSize: 11, textAlign: "center", lineHeight: 1.6}}>
           <strong>Exacto</strong> +3 pts · <strong>Parcial</strong> +2 pts · <strong>Signo</strong> +1 pt<br/>
-          Los puntos bonus se suman al final del torneo
+          <strong>Bonus</strong> +5 pts por acierto · Pts = solo partidos · Bon = puntos bonus
         </div>
       </div>
     </>
@@ -1284,7 +1299,7 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
             <Icon.Alert size={18}/>
             <div>
               <strong>Bonus abiertos.</strong><br/>
-              El admin cerrará el periodo antes del primer partido.
+              Cada acierto vale <strong>+5 pts</strong>. El admin cerrará el periodo antes del primer partido.
             </div>
           </div>
         )}
@@ -1369,16 +1384,19 @@ window.BonusScreen = BonusScreen;
 
 
 // Admin: tabla de clasificación (misma lógica que LeaderboardScreen, sin isMe)
-function AdminLeaderboardTab({ participants, matches, realResults }) {
+function AdminLeaderboardTab({ participants, matches, realResults, participantBonus, officialBonus }) {
   const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
   const [sortBy, setSortBy] = React.useState("pts");
 
   const enriched = React.useMemo(() => {
+    const pb = participantBonus || window.QUINIELA_DATA.PARTICIPANT_BONUS || {};
+    const ob = officialBonus || window.QUINIELA_DATA.OFFICIAL_BONUS || {};
     return participants.map(p => {
       const stats = window.aggregateStats(p.predictions, realResults);
-      return { ...p, ...stats };
+      const bonPts = window.calcBonusPts(pb[p.user], ob);
+      return { ...p, ...stats, bonPts };
     });
-  }, [participants, realResults]);
+  }, [participants, realResults, participantBonus, officialBonus]);
 
   const sorted = React.useMemo(() => {
     const arr = [...enriched];
@@ -1426,6 +1444,7 @@ function AdminLeaderboardTab({ participants, matches, realResults }) {
             <div className="cw-pos">Pos</div>
             <div className="cw-name">Participante</div>
             <div className="cw-pts">Pts</div>
+            <div className="cw-bon">Bon</div>
             <div className="cw-stat">Ex</div>
             <div className="cw-stat">Pc</div>
             <div className="cw-stat">Sg</div>
@@ -1437,13 +1456,13 @@ function AdminLeaderboardTab({ participants, matches, realResults }) {
                 <span className={`pos-chip ${i < 3 ? `top-${i+1}` : ""}`}>{i+1}</span>
               </div>
               <div className="cw-name">
-
                 <div className="cw-name-text">
                   <div className="cw-name-main">{p.name}</div>
                   <div className="cw-name-sub">@{p.user}</div>
                 </div>
               </div>
               <div className="cw-pts">{p.pts}</div>
+              <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
               <div className="cw-stat ex">{p.exactos}</div>
               <div className="cw-stat pc">{p.parciales}</div>
               <div className="cw-stat sg">{p.signos}</div>
@@ -1633,7 +1652,7 @@ function AdminScreen({
         <>
           {tab === "summary"     && <SummaryTab users={viewUsers} realResults={viewResults} phaseOpen={viewPhaseOpen} matches={viewMatches} participants={viewParticipants}/>}
           {tab === "users"       && <UsersTab users={viewUsers} setUsers={setUsers} flash={flash} readOnly={isPreview}/>}
-          {tab === "leaderboard" && <AdminLeaderboardTab participants={viewParticipants} matches={viewMatches} realResults={viewResults}/>}
+          {tab === "leaderboard" && <AdminLeaderboardTab participants={viewParticipants} matches={viewMatches} realResults={viewResults} participantBonus={viewParticipantBonus} officialBonus={viewOfficialBonus}/>}
           {tab === "phases"      && <PhasesTab phaseOpen={viewPhaseOpen} setPhaseOpen={setPhaseOpen} flash={flash} readOnly={isPreview} matches={viewMatches}/>}
           {tab === "results"     && <ResultsTab realResults={viewResults} setRealResults={setRealResults} readOnly={isPreview} matches={viewMatches}/>}
           {tab === "matrix"      && <MatrixTab realResults={viewResults} participants={viewParticipants} matches={viewMatches}/>}
@@ -2587,7 +2606,7 @@ function ParticipantBonusTab({ participantBonus, officialBonus, participants }) 
                       </th>
                     );
                   })}
-                  <th style={{minWidth: 70, fontSize: 10.5, color: "var(--ink-3)", letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 700}}>Aciertos</th>
+                  <th style={{minWidth: 70, fontSize: 10.5, color: "var(--ink-3)", letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 700}}>Bon pts</th>
                 </tr>
               </thead>
               <tbody>
@@ -2615,8 +2634,9 @@ function ParticipantBonusTab({ participantBonus, officialBonus, participants }) 
                         </td>
                       );
                     })}
-                    <td className="matrix-cell" style={{textAlign: "center", padding: "8px 12px", fontWeight: 800, fontSize: 15, fontVariantNumeric: "tabular-nums", color: p.aciertos > 0 ? "var(--primary-dark)" : "var(--ink-3)"}}>
-                      {p.aciertos}<small style={{fontSize: 10, color: "var(--ink-3)", fontWeight: 600}}>/5</small>
+                    <td className="matrix-cell" style={{textAlign: "center", padding: "8px 12px", fontVariantNumeric: "tabular-nums", color: p.aciertos > 0 ? "var(--primary-dark)" : "var(--ink-3)"}}>
+                      <div style={{fontWeight: 800, fontSize: 15}}>{p.aciertos}<small style={{fontSize: 10, color: "var(--ink-3)", fontWeight: 600}}>/5</small></div>
+                      <div style={{fontSize: 10, fontWeight: 700, color: p.aciertos > 0 ? "var(--primary-dark)" : "var(--ink-3)"}}>+{p.aciertos * BONUS_PTS_PER_HIT} pts</div>
                     </td>
                   </tr>
                 ))}
@@ -2845,7 +2865,7 @@ function DesignedOriginalApp() {
                 realResults={realResults}
               />
             )}
-            {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults} participantsKey={participantsLoaded}/>}
+            {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults} participantsKey={participantsLoaded} participantBonus={participantBonus} officialBonus={officialBonus}/>}
             {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus} phaseOpen={phaseOpen}/>}
             {tab === "matrix" && (canSeeMatrix
               ? <MatrixTab realResults={realResults} participants={window.QUINIELA_DATA.PARTICIPANTS} matches={window.QUINIELA_DATA.MATCHES}/>
