@@ -2319,6 +2319,13 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
 
   return (
     <>
+      <div className="topbar">
+        <div className="topbar-logo">Q26</div>
+        <div>
+          <div className="topbar-title">Jugadores</div>
+          <div className="topbar-sub">{PARTICIPANTS.length} participantes</div>
+        </div>
+      </div>
       <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
         <div className="legend">
           <span className="legend-item"><span className="legend-dot cell-exacto"></span>Exacto · +3</span>
@@ -2517,6 +2524,13 @@ function ParticipantBonusTab({ participantBonus, officialBonus, participants }) 
 
   return (
     <>
+      <div className="topbar">
+        <div className="topbar-logo">Q26</div>
+        <div>
+          <div className="topbar-title">Bonus jugadores</div>
+          <div className="topbar-sub">5 predicciones especiales</div>
+        </div>
+      </div>
       <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
         <div className="notice">
           <Icon.Star size={18}/>
