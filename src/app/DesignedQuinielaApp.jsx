@@ -1865,7 +1865,10 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
   }
 
   function credsText(u) {
-    return `Hola ${u.name || u.user}, tu acceso a la Quiniela Mundial 2026:\n\nUsuario: ${u.user}\nContraseña: ${u.pass}\n\nMucha suerte. ⚽`;
+    const url = process.env.NEXT_PUBLIC_APP_URL
+      ? `https://${process.env.NEXT_PUBLIC_APP_URL}`
+      : (typeof window !== "undefined" ? window.location.origin : "");
+    return `Hola ${u.name || u.user}, tu acceso a la Quiniela Mundial 2026:\n\nUsuario: ${u.user}\nContraseña: ${u.pass}\n\n🔗 ${url}\n\nMucha suerte. ⚽`;
   }
 
   function copyCreds(u) {
@@ -1993,8 +1996,10 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
                   <button className="icon-btn" onClick={() => copyCreds(u)} title="Copiar credenciales">
                     <Icon.Copy size={14}/>
                   </button>
+                </div>
+                <div className="user-pass-actions">
                   <button className="btn btn-sm btn-secondary" onClick={() => shareCreds(u)} style={{display:"flex",alignItems:"center",gap:5}}>
-                    <Icon.Share2 size={13}/>Enviar
+                    <Icon.Share2 size={13}/>Enviar por WhatsApp
                   </button>
                 </div>
                 <button

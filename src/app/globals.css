@@ -1378,10 +1378,13 @@ input, select, textarea { font-family: inherit; }
 }
 .user-card-body {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   padding: 6px 16px 14px;
-  flex-wrap: wrap;
+}
+.user-pass-actions {
+  display: flex;
+  gap: 8px;
 }
 .user-pass-row {
   display: flex;
