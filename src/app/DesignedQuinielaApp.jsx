@@ -301,6 +301,13 @@ window.calcBonusPts = function(picks, officialBonus) {
 // Reusable icons + utility components
 
 const Icon = {
+  Download: (p) => (
+    <svg width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v12"/>
+      <path d="M7 10l5 5 5-5"/>
+      <path d="M5 21h14"/>
+    </svg>
+  ),
   Trophy: (p) => (
     <svg width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 3h12v4a6 6 0 0 1-12 0V3z"/>
@@ -1683,7 +1690,12 @@ function SummaryTab({ users, realResults, phaseOpen, matches, participants }) {
   return (
     <>
       <div className="section" style={{paddingTop: 8, paddingBottom: 4}}>
-        <div className="section-title">Estado del torneo</div>
+        <div className="section-title" style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+          Estado del torneo
+          <a href="/api/admin/export" className="btn btn-secondary" style={{fontSize: 12, padding: "6px 10px"}}>
+            <Icon.Download size={14}/> Exportar CSV
+          </a>
+        </div>
         <div className="dash-grid">
           <div className="dash-card">
             <div className="dash-card-head">
