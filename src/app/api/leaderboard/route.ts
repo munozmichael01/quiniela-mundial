@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient, fetchAllRows } from "@/lib/supabase/server";
 import { calcularPuntos, calcularPuntosBonus } from "@/lib/points";
 
 interface LeaderboardEntry {
@@ -27,7 +27,12 @@ export async function GET() {
     { data: bonusResults },
   ] = await Promise.all([
     supabase.from("users").select("id, nombre, alias").eq("role", "user"),
-    supabase.from("predictions").select("user_id, match_id, home_score, away_score"),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("predictions")
+        .select("user_id, match_id, home_score, away_score")
+        .range(from, to)
+    ),
     supabase.from("results").select("match_id, home_score, away_score"),
     supabase.from("bonuses").select("user_id, campeon, subcampeon, goleador, mvp, portero"),
     supabase

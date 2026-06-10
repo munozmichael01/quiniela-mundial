@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient, fetchAllRows } from "@/lib/supabase/server";
 import { calcularPuntos, calcularPuntosBonus } from "@/lib/points";
 
 export async function GET() {
@@ -25,7 +25,12 @@ export async function GET() {
     supabase.from("predictions").select("*", { count: "exact", head: true }),
     supabase.from("results").select("*", { count: "exact", head: true }),
     supabase.from("matches").select("*", { count: "exact", head: true }),
-    supabase.from("predictions").select("user_id, match_id, home_score, away_score"),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("predictions")
+        .select("user_id, match_id, home_score, away_score")
+        .range(from, to)
+    ),
     supabase.from("results").select("match_id, home_score, away_score"),
     supabase.from("bonuses").select("user_id, campeon, subcampeon, goleador, mvp, portero"),
     supabase
