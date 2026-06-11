@@ -1690,11 +1690,16 @@ function SummaryTab({ users, realResults, phaseOpen, matches, participants }) {
   return (
     <>
       <div className="section" style={{paddingTop: 8, paddingBottom: 4}}>
-        <div className="section-title" style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+        <div className="section-title" style={{display:"flex", justifyContent:"space-between", alignItems:"center", gap: 8}}>
           Estado del torneo
-          <a href="/api/admin/export" className="btn btn-secondary" style={{fontSize: 12, padding: "6px 10px"}}>
-            <Icon.Download size={14}/> Exportar CSV
-          </a>
+          <div style={{display:"flex", gap: 8}}>
+            <a href="/api/admin/export" className="btn btn-secondary" style={{fontSize: 12, padding: "6px 10px"}}>
+              <Icon.Download size={14}/> Pronósticos
+            </a>
+            <a href="/api/admin/export?type=bonus" className="btn btn-secondary" style={{fontSize: 12, padding: "6px 10px"}}>
+              <Icon.Download size={14}/> Bonus
+            </a>
+          </div>
         </div>
         <div className="dash-grid">
           <div className="dash-card">

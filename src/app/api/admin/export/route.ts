@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { createServiceClient, fetchAllRows } from "@/lib/supabase/server";
 
@@ -7,17 +7,61 @@ function csvEscape(value: string): string {
   return value;
 }
 
-export async function GET() {
+// Forces Excel to treat a value like "1-1" as text instead of a date
+function asText(value: string): string {
+  return `="${value.replace(/"/g, '""')}"`;
+}
+
+function toCsvResponse(rows: string[][], filename: string): NextResponse {
+  const csv = rows.map((r) => r.map((cell) => csvEscape(String(cell))).join(";")).join("\n");
+  const bom = "﻿"; // for Excel UTF-8
+
+  return new NextResponse(bom + csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+  });
+}
+
+export async function GET(req: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
 
   const supabase = createServiceClient();
+  const type = new URL(req.url).searchParams.get("type");
 
-  const [
-    { data: users },
-    { data: matches },
-    { data: predictions },
-  ] = await Promise.all([
+  if (type === "bonus") {
+    const [{ data: users }, { data: bonuses }] = await Promise.all([
+      supabase.from("users").select("id, nombre, alias").eq("role", "user").order("alias"),
+      supabase.from("bonuses").select("user_id, campeon, subcampeon, goleador, mvp, portero"),
+    ]);
+
+    if (!users) {
+      return NextResponse.json({ error: "No se pudieron cargar los datos" }, { status: 500 });
+    }
+
+    const bonusMap = new Map((bonuses ?? []).map((b) => [b.user_id, b]));
+    const header = ["Jugador", "Alias", "Campeón", "Subcampeón", "Goleador", "MVP", "Mejor portero"];
+    const rows: string[][] = [header];
+
+    for (const user of users) {
+      const b = bonusMap.get(user.id);
+      rows.push([
+        user.nombre,
+        user.alias,
+        b?.campeon ?? "",
+        b?.subcampeon ?? "",
+        b?.goleador ?? "",
+        b?.mvp ?? "",
+        b?.portero ?? "",
+      ]);
+    }
+
+    return toCsvResponse(rows, "quiniela-bonus.csv");
+  }
+
+  const [{ data: users }, { data: matches }, { data: predictions }] = await Promise.all([
     supabase.from("users").select("id, nombre, alias").eq("role", "user").order("alias"),
     supabase.from("matches").select("id, group, home, away, date").order("date"),
     fetchAllRows((from, to) =>
@@ -50,18 +94,10 @@ export async function GET() {
       user.alias,
       ...matches.map((m) => {
         const p = predsMap.get(`${user.id}-${m.id}`);
-        return p ? `${p.home_score}-${p.away_score}` : "";
+        return p ? asText(`${p.home_score}-${p.away_score}`) : "";
       }),
     ]);
   }
 
-  const csv = rows.map((r) => r.map((cell) => csvEscape(String(cell))).join(";")).join("\n");
-  const bom = "﻿"; // for Excel UTF-8
-
-  return new NextResponse(bom + csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="quiniela-resultados.csv"`,
-    },
-  });
+  return toCsvResponse(rows, "quiniela-pronosticos.csv");
 }

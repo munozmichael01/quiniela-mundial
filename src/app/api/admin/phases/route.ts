@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
-const VALID_PHASES = ["groups", "r32", "r16", "qf", "sf", "third", "final"] as const;
+const VALID_PHASES = ["groups", "bonus", "r32", "r16", "qf", "sf", "third", "final"] as const;
 
 const patchSchema = z.object({
   id: z.enum(VALID_PHASES),
