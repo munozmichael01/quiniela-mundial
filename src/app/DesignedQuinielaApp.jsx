@@ -767,8 +767,13 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
       setActiveDayKey("");
       return;
     }
+    const todayKey = dayKeyFromDate(new Date(window.getNow()));
+    if (availableDays.some(day => day.key === todayKey)) {
+      if (activeDayKey !== todayKey) setActiveDayKey(todayKey);
+      return;
+    }
     if (availableDays.some(day => day.key === activeDayKey)) return;
-    const todayMs = dayMsFromKey(dayKeyFromDate(new Date(window.getNow())));
+    const todayMs = dayMsFromKey(todayKey);
     const nextDay = availableDays.find(day => dayMsFromKey(day.key) >= todayMs);
     setActiveDayKey((nextDay || availableDays[0]).key);
   }, [phaseTab, activeDayKey, availableDays]);
