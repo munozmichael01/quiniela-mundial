@@ -605,6 +605,10 @@ input, select, textarea { font-family: inherit; }
   font-weight: 700;
   margin-top: 1px;
 }
+.matrix-table thead th.matrix-focus-match {
+  background: var(--primary-soft);
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
 .matrix-table tbody td.cell-player {
   position: sticky;
   left: 0; z-index: 2;
@@ -1370,6 +1374,7 @@ input, select, textarea { font-family: inherit; }
   margin: 0 -20px;
   overflow-x: auto;
   padding: 0 20px 4px;
+  scroll-padding-left: 20px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }

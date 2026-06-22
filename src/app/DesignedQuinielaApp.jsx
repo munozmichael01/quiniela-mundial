@@ -780,7 +780,12 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
 
   React.useEffect(() => {
     if (!selectedDayKey) return;
-    activeDateRef.current?.scrollIntoView({ block: "nearest", inline: "start" });
+    const scroller = dateTabsRef.current;
+    const active = activeDateRef.current;
+    if (!scroller || !active) return;
+    const styles = window.getComputedStyle(scroller);
+    const inset = parseFloat(styles.paddingLeft) || 0;
+    scroller.scrollTo({ left: Math.max(0, active.offsetLeft - inset), behavior: "smooth" });
   }, [selectedDayKey]);
 
   return (
@@ -2491,12 +2496,19 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
   const PARTICIPANTS = participants || window.QUINIELA_DATA.PARTICIPANTS;
   const [phaseFilter, setPhaseFilter] = React.useState("groups");
   const [groupFilter, setGroupFilter] = React.useState("ALL");
+  const matrixScrollRef = React.useRef(null);
+  const matrixTodayRef = React.useRef(null);
 
-  const matches = MATCHES.filter(m => {
+  const matches = sortMatchesByKickoff(MATCHES.filter(m => {
     if (matchPhase(m) !== phaseFilter) return false;
     if (phaseFilter === "groups" && groupFilter !== "ALL" && m.group !== groupFilter) return false;
     return true;
-  });
+  }));
+  const todayKey = dayKeyFromDate(new Date(window.getNow()));
+  const todayMs = dayMsFromKey(todayKey);
+  const matrixFocusMatch = matches.find(m => dayKeyFromMatch(m) === todayKey)
+    || matches.find(m => m.kickoffMs >= todayMs)
+    || matches[0];
 
   const rows = React.useMemo(() => {
     return PARTICIPANTS.map(p => ({
@@ -2504,6 +2516,14 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
       stats: window.aggregateStats(p.predictions, realResults),
     })).sort((a, b) => b.stats.pts - a.stats.pts);
   }, [realResults]);
+
+  React.useEffect(() => {
+    const scroller = matrixScrollRef.current;
+    const target = matrixTodayRef.current;
+    if (!scroller || !target) return;
+    const stickyWidth = scroller.querySelector(".head-player")?.offsetWidth || 0;
+    scroller.scrollTo({ left: Math.max(0, target.offsetLeft - stickyWidth), behavior: "smooth" });
+  }, [phaseFilter, groupFilter, matrixFocusMatch?.id]);
 
   return (
     <>
@@ -2547,7 +2567,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
 
       <div className="section" style={{paddingTop: 8}}>
         <div className="matrix-wrap">
-          <div className="matrix-scroll">
+          <div className="matrix-scroll" ref={matrixScrollRef}>
             <table className="matrix-table">
               <thead>
                 <tr>
@@ -2556,7 +2576,12 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
                     const r = realResults[m.id];
                     const hasReal = r && r.home !== "" && r.away !== "";
                     return (
-                      <th key={m.id} title={`${m.home || m.homePlaceholder} vs ${m.away || m.awayPlaceholder} — ${m.date} ${m.time}`}>
+                      <th
+                        key={m.id}
+                        ref={matrixFocusMatch?.id === m.id ? matrixTodayRef : null}
+                        className={matrixFocusMatch?.id === m.id ? "matrix-focus-match" : ""}
+                        title={`${m.home || m.homePlaceholder} vs ${m.away || m.awayPlaceholder} — ${m.date} ${m.time}`}
+                      >
                         <div className="match-pair">
                           <span className="match-grp">{m.group ? `G${m.group}` : m.phase.toUpperCase()}</span>
                           {m.home
