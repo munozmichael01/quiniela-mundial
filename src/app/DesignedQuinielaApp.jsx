@@ -2521,8 +2521,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
     const scroller = matrixScrollRef.current;
     const target = matrixTodayRef.current;
     if (!scroller || !target) return;
-    const stickyWidth = scroller.querySelector(".head-player")?.offsetWidth || 0;
-    scroller.scrollTo({ left: Math.max(0, target.offsetLeft - stickyWidth), behavior: "smooth" });
+    scroller.scrollTo({ left: Math.max(0, target.offsetLeft), behavior: "smooth" });
   }, [phaseFilter, groupFilter, matrixFocusMatch?.id]);
 
   return (
