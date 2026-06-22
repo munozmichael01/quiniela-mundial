@@ -2427,12 +2427,15 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
         </div>
       )}
 
-      <div className="section" style={{paddingTop: 8}}>
-        {!readOnly && (
-          <button className="btn btn-primary" style={{width:"100%", marginBottom: 10}} onClick={saveGroup} disabled={saving}>
+      {!readOnly && (
+        <div className="section admin-results-savebar">
+          <button className="btn btn-primary" style={{width:"100%"}} onClick={saveGroup} disabled={saving}>
             {saving ? "Guardando…" : "Guardar resultados visibles"}
           </button>
-        )}
+        </div>
+      )}
+
+      <div className="section" style={{paddingTop: 8}}>
         {resultDays.map(day => (
           <div className="card group-card" key={day.key}>
             <div className="group-head open">
