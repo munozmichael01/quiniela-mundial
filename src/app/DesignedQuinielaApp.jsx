@@ -259,6 +259,62 @@ window.formatRelative = (iso) => {
   return `${date.getDate()} ${months[date.getMonth()]}`;
 };
 
+function compareMatchesByKickoff(a, b) {
+  const aTime = Number.isFinite(a.kickoffMs) ? a.kickoffMs : new Date(a.kickoffISO || a.date).getTime();
+  const bTime = Number.isFinite(b.kickoffMs) ? b.kickoffMs : new Date(b.kickoffISO || b.date).getTime();
+  return aTime - bTime || String(a.id).localeCompare(String(b.id));
+}
+
+function sortMatchesByKickoff(matches) {
+  return [...matches].sort(compareMatchesByKickoff);
+}
+
+function dayKeyFromDate(date) {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function dayKeyFromMatch(match) {
+  return dayKeyFromDate(new Date(Number.isFinite(match.kickoffMs) ? match.kickoffMs : match.kickoffISO));
+}
+
+function dayMsFromKey(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month, day).getTime();
+}
+
+function dateFilterLabel(day) {
+  const todayKey = dayKeyFromDate(new Date(window.getNow()));
+  const tomorrowKey = dayKeyFromDate(new Date(window.getNow() + 24 * 60 * 60 * 1000));
+  const yesterdayKey = dayKeyFromDate(new Date(window.getNow() - 24 * 60 * 60 * 1000));
+  if (day.key === todayKey) return "Hoy";
+  if (day.key === tomorrowKey) return "Mañana";
+  if (day.key === yesterdayKey) return "Ayer";
+  const date = new Date(dayMsFromKey(day.key));
+  const days = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+function groupMatchesByDay(matches) {
+  const days = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return sortMatchesByKickoff(matches).reduce((acc, match) => {
+    const date = new Date(Number.isFinite(match.kickoffMs) ? match.kickoffMs : match.kickoffISO);
+    const key = dayKeyFromDate(date);
+    let day = acc.find(item => item.key === key);
+    if (!day) {
+      day = {
+        key,
+        label: `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`,
+        matches: [],
+      };
+      acc.push(day);
+    }
+    day.matches.push(match);
+    return acc;
+  }, []);
+}
+
 // Scoring: exacto = 3, parcial (mismo signo ganador/empate) = 1, fallo = 0
 // Devuelve { type: 'exacto' | 'parcial' | 'fallo' | null, pts: 0-3 }
 window.scorePrediction = function(pred, real) {
@@ -635,9 +691,9 @@ window.LoginScreen = LoginScreen;
 // Mis Pronósticos — pestañas por fase, bloqueo por kickoff + por fase cerrada
 
 function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen }) {
-  const { GROUPS, MATCHES, PHASES, matchPhase } = window.QUINIELA_DATA;
-  const [openGroups, setOpenGroups] = React.useState(() => ({ A: true }));
+  const { MATCHES, PHASES, matchPhase } = window.QUINIELA_DATA;
   const [phaseTab, setPhaseTab] = React.useState("groups");
+  const [activeDayKey, setActiveDayKey] = React.useState("");
   const [toast, setToast] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
@@ -663,10 +719,6 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
     }));
   }
 
-  function toggleGroup(g) {
-    setOpenGroups(prev => ({ ...prev, [g]: !prev[g] }));
-  }
-
   async function save() {
     const rows = Object.entries(predictions)
       .filter(([, p]) => p.home !== "" && p.away !== "")
@@ -688,15 +740,6 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
     }
   }
 
-  function groupProgress(g) {
-    const inGroup = MATCHES.filter(m => m.group === g);
-    const done = inGroup.filter(m => {
-      const p = predictions[m.id];
-      return p && p.home !== "" && p.away !== "";
-    }).length;
-    return { done, total: inGroup.length };
-  }
-
   // Phase tab counts (bonus excluded — it has its own section)
   const phaseCounts = PHASES.filter(ph => ph.id !== "bonus").map(ph => {
     const inPhase = MATCHES.filter(m => matchPhase(m) === ph.id);
@@ -709,6 +752,26 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
 
   const activePhase = PHASES.find(p => p.id === phaseTab) || PHASES[0];
   const phaseUnlocked = phaseOpen[phaseTab];
+  const phaseMatches = sortMatchesByKickoff(MATCHES.filter(m => matchPhase(m) === phaseTab));
+  const availableDays = groupMatchesByDay(phaseMatches);
+  const selectedDayKey = availableDays.some(day => day.key === activeDayKey)
+    ? activeDayKey
+    : "";
+  const visibleMatches = selectedDayKey
+    ? phaseMatches.filter(m => dayKeyFromMatch(m) === selectedDayKey)
+    : phaseMatches;
+  const visibleDays = groupMatchesByDay(visibleMatches);
+
+  React.useEffect(() => {
+    if (availableDays.length === 0) {
+      setActiveDayKey("");
+      return;
+    }
+    if (availableDays.some(day => day.key === activeDayKey)) return;
+    const todayMs = dayMsFromKey(dayKeyFromDate(new Date(window.getNow())));
+    const nextDay = availableDays.find(day => dayMsFromKey(day.key) >= todayMs);
+    setActiveDayKey((nextDay || availableDays[0]).key);
+  }, [phaseTab, activeDayKey, availableDays]);
 
   return (
     <>
@@ -763,6 +826,23 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
         </div>
       </div>
 
+      {availableDays.length > 0 && (
+        <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
+          <div className="date-tabs" aria-label="Filtrar por fecha">
+            {availableDays.map(day => (
+              <button
+                key={day.key}
+                className={`date-tab ${selectedDayKey === day.key ? "active" : ""}`}
+                onClick={() => setActiveDayKey(day.key)}
+              >
+                <span>{dateFilterLabel(day)}</span>
+                <small>{day.matches.length} {day.matches.length === 1 ? "partido" : "partidos"}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!phaseUnlocked && (
         <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
           <div className="notice closed">
@@ -778,28 +858,26 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
       {/* Group view */}
       {phaseTab === "groups" && (
         <div className="section" style={{paddingTop: 0}}>
-          <div className="section-title">Grupos · 12 grupos · 72 partidos</div>
-          {Object.keys(GROUPS).map(g => {
-            const open = !!openGroups[g];
-            const groupMatches = MATCHES.filter(m => m.group === g);
-            const prog = groupProgress(g);
+          <div className="section-title">{selectedDayKey ? "Partidos del día" : "Grupos · 12 grupos · 72 partidos"}</div>
+          {visibleDays.map(day => {
+            const done = day.matches.filter(m => {
+              const p = predictions[m.id];
+              return p && p.home !== "" && p.away !== "";
+            }).length;
             return (
-              <div className="card group-card" key={g}>
-                <button className={`group-head ${open ? "open" : ""}`} onClick={() => toggleGroup(g)}>
-                  <div className="group-badge">{g}</div>
+              <div className="card group-card" key={day.key}>
+                <div className="group-head open">
+                  <div className="group-badge">{day.matches.length}</div>
                   <div>
-                    <div className="group-title">Grupo {g}</div>
+                    <div className="group-title">{day.label}</div>
                     <div className="muted-2" style={{fontSize: 11, marginTop: 1}}>
-                      {GROUPS[g].slice(0,2).join(" · ")} · {GROUPS[g].slice(2).join(" · ")}
+                      {day.matches.map(m => `G${m.group}`).filter((g, i, arr) => arr.indexOf(g) === i).join(" · ")}
                     </div>
                   </div>
-                  <div className="group-progress">{prog.done}/{prog.total}</div>
-                  <span className={`group-chevron ${open ? "open" : ""}`}>
-                    <Icon.Chevron size={16}/>
-                  </span>
-                </button>
+                  <div className="group-progress">{done}/{day.matches.length}</div>
+                </div>
 
-                {open && groupMatches.map(m => (
+                {day.matches.map(m => (
                   <MatchRow
                     key={m.id}
                     match={m}
@@ -819,18 +897,29 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
       {phaseTab !== "groups" && (
         <div className="section" style={{paddingTop: 0}}>
           <div className="section-title">{activePhase.label} · {activePhase.count} {activePhase.count === 1 ? "partido" : "partidos"}</div>
-          <div className="card">
-            {MATCHES.filter(m => matchPhase(m) === phaseTab).map(m => (
-              <MatchRow
-                key={m.id}
-                match={m}
-                prediction={predictions[m.id]}
-                real={realResults[m.id]}
-                onScore={setScore}
-                phaseOpen={phaseUnlocked}
-              />
-            ))}
-          </div>
+          {visibleDays.map(day => (
+            <div className="card group-card" key={day.key}>
+              <div className="group-head open">
+                <div className="group-badge">{day.matches.length}</div>
+                <div>
+                  <div className="group-title">{day.label}</div>
+                  <div className="muted-2" style={{fontSize: 11, marginTop: 1}}>
+                    {activePhase.label}
+                  </div>
+                </div>
+              </div>
+              {day.matches.map(m => (
+                <MatchRow
+                  key={m.id}
+                  match={m}
+                  prediction={predictions[m.id]}
+                  real={realResults[m.id]}
+                  onScore={setScore}
+                  phaseOpen={phaseUnlocked}
+                />
+              ))}
+            </div>
+          ))}
         </div>
       )}
 
@@ -871,6 +960,7 @@ function MatchRow({ match, prediction, real, onScore, phaseOpen = true }) {
   const isPlaceholder = match.home == null || match.away == null;
   const homeLabel = isPlaceholder ? match.homePlaceholder : match.home;
   const awayLabel = isPlaceholder ? match.awayPlaceholder : match.away;
+  const matchLabel = (match.phase || "groups") === "groups" && match.group ? `Grupo ${match.group}` : null;
 
   return (
     <div className={`match-row ${hasReal ? "has-real" : ""} ${isPlaceholder ? "placeholder" : ""}`}>
@@ -907,6 +997,7 @@ function MatchRow({ match, prediction, real, onScore, phaseOpen = true }) {
         {!phaseOpen
           ? <span className="status-badge status-locked"><Icon.Lock size={9}/>Fase cerrada</span>
           : <StatusBadge status={status} soon={soon} hasReal={hasReal}/>}
+        {matchLabel && <span style={{marginLeft: 6}}>{matchLabel}</span>}
         <span style={{marginLeft: 6}}>{match.date} · {match.time}</span>
         <span style={{marginLeft: "auto", display: "flex", gap: 6, alignItems: "center"}}>
           {!locked && <span className="muted-2" style={{fontSize: 10.5}}>{window.formatRelative(match.kickoffISO)}</span>}
@@ -952,7 +1043,7 @@ function MisAciertosScreen({ predictions, realResults }) {
         const score = window.scorePrediction(p, r);
         return { match: m, pred: p, real: r, hasReal, score };
       })
-      .sort((a, b) => b.match.kickoffMs - a.match.kickoffMs);
+      .sort((a, b) => compareMatchesByKickoff(a.match, b.match));
   }, [predictions, realResults]);
 
   const filtered = entries.filter(e => {
@@ -1103,6 +1194,7 @@ window.MisAciertosScreen = MisAciertosScreen;
 
 function LeaderboardScreen({ currentUser, realResults, participantsKey, participantBonus, officialBonus }) {
   const [sortBy, setSortBy] = React.useState("pts");
+  const [view, setView] = React.useState("players");
 
   const enriched = React.useMemo(() => {
     const PARTICIPANTS = window.QUINIELA_DATA.PARTICIPANTS;
@@ -1137,11 +1229,22 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
       <div className="topbar">
         <div className="topbar-logo">Q26</div>
         <div>
-          <div className="topbar-title">Clasificación</div>
-          <div className="topbar-sub">{PARTICIPANTS.length} participantes</div>
+          <div className="topbar-title">{view === "players" ? "Clasificación" : "Grupos"}</div>
+          <div className="topbar-sub">{view === "players" ? `${PARTICIPANTS.length} participantes` : "Tabla oficial por grupo"}</div>
         </div>
       </div>
 
+      <div className="section" style={{paddingBottom: 8}}>
+        <div className="pill-tabs" style={{display: "flex"}}>
+          <button className={`pill-tab ${view === "players" ? "active" : ""}`} onClick={() => setView("players")}>Jugadores</button>
+          <button className={`pill-tab ${view === "groups" ? "active" : ""}`} onClick={() => setView("groups")}>Grupos</button>
+        </div>
+      </div>
+
+      {view === "groups" ? (
+        <GroupsTab matches={window.QUINIELA_DATA.MATCHES || MATCHES} realResults={realResults} showKnockout={false}/>
+      ) : (
+        <>
       <div className="section" style={{paddingBottom: 10}}>
         <div className="card" style={{padding: "14px 16px", display: "flex", alignItems: "center", gap: 12}}>
           <div style={{
@@ -1222,6 +1325,8 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
           Pts = partidos · Bon = bonus
         </div>
       </div>
+        </>
+      )}
     </>
   );
 }
@@ -2047,7 +2152,7 @@ function PaidBadge({ paid }) {
 }
 
 
-function GroupsTab({ matches, realResults }) {
+function GroupsTab({ matches, realResults, showKnockout = true }) {
   const groupMatches = matches.filter(m => (m.phase || "groups") === "groups" && m.group);
   const groups = Array.from(new Set(groupMatches.map(m => m.group))).sort();
   const knockout = (window.QUINIELA_DATA.MATCHES_KO || []);
@@ -2058,11 +2163,11 @@ function GroupsTab({ matches, realResults }) {
         <div className="section-title">Tablas de grupos</div>
         <div className="groups-grid">
           {groups.map(group => (
-            <GroupTable key={group} group={group} matches={groupMatches.filter(m => m.group === group)} realResults={realResults}/>
+            <GroupTable key={group} group={group} matches={groupMatches.filter(m => m.group === group)} realResults={realResults} compact={!showKnockout}/>
           ))}
         </div>
       </div>
-      <div className="section" style={{paddingTop: 8}}>
+      {showKnockout && <div className="section" style={{paddingTop: 8}}>
         <div className="section-title">Llaves y siguientes fases</div>
         <div className="bracket-grid">
           {["r32", "r16", "qf", "sf", "third", "final"].map(phase => (
@@ -2078,25 +2183,37 @@ function GroupsTab({ matches, realResults }) {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
     </>
   );
 }
 
-function GroupTable({ group, matches, realResults }) {
+function GroupTable({ group, matches, realResults, compact = false }) {
   const rows = computeGroupStandings(matches, realResults);
   return (
-    <div className="group-standings card">
+    <div className={`group-standings card ${compact ? "compact" : ""}`}>
       <div className="group-standings-head">Grupo {group}</div>
       <table>
         <thead>
-          <tr><th>País</th><th>Pts</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DF</th></tr>
+          {compact
+            ? <tr><th>#</th><th>País</th><th>PJ</th><th>DF</th><th>Pts</th></tr>
+            : <tr><th>País</th><th>Pts</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DF</th></tr>}
         </thead>
         <tbody>
-          {rows.map(row => (
+          {rows.map((row, index) => (
             <tr key={row.team}>
-              <td><FlagImg team={row.team} size={18}/><span>{row.team}</span></td>
-              <td>{row.pts}</td><td>{row.pj}</td><td>{row.g}</td><td>{row.e}</td><td>{row.p}</td><td>{row.gf}</td><td>{row.gc}</td><td>{row.df}</td>
+              {compact ? (
+                <>
+                  <td>{index + 1}</td>
+                  <td><FlagImg team={row.team} size={18}/><span>{row.team}</span></td>
+                  <td>{row.pj}</td><td>{row.df > 0 ? `+${row.df}` : row.df}</td><td>{row.pts}</td>
+                </>
+              ) : (
+                <>
+                  <td><FlagImg team={row.team} size={18}/><span>{row.team}</span></td>
+                  <td>{row.pts}</td><td>{row.pj}</td><td>{row.g}</td><td>{row.e}</td><td>{row.p}</td><td>{row.gf}</td><td>{row.gc}</td><td>{row.df}</td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
@@ -2218,13 +2335,14 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
   const { GROUPS, PHASES, matchPhase } = window.QUINIELA_DATA;
   const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
   const [phaseFilter, setPhaseFilter] = React.useState("groups");
-  const [resGroup, setResGroup] = React.useState("A");
+  const [resGroup, setResGroup] = React.useState("ALL");
   const [saving, setSaving] = React.useState(false);
 
   const inPhase = MATCHES.filter(m => matchPhase(m) === phaseFilter);
-  const resMatches = phaseFilter === "groups"
+  const resMatches = sortMatchesByKickoff(phaseFilter === "groups" && resGroup !== "ALL"
     ? inPhase.filter(m => m.group === resGroup)
-    : inPhase;
+    : inPhase);
+  const resultDays = groupMatchesByDay(resMatches);
   const resDone = MATCHES.filter(m => {
     const r = realResults[m.id];
     return r && r.home !== "" && r.away !== "";
@@ -2284,6 +2402,7 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
         <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
           <label className="label" style={{marginBottom: 6, display: "block"}}>Grupo</label>
           <select className="select" value={resGroup} onChange={e => setResGroup(e.target.value)}>
+            <option value="ALL">Todos los grupos</option>
             {Object.keys(GROUPS).map(g => <option key={g} value={g}>Grupo {g}</option>)}
           </select>
         </div>
@@ -2292,47 +2411,60 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
       <div className="section" style={{paddingTop: 8}}>
         {!readOnly && (
           <button className="btn btn-primary" style={{width:"100%", marginBottom: 10}} onClick={saveGroup} disabled={saving}>
-            {saving ? "Guardando…" : "Guardar resultados"}
+            {saving ? "Guardando…" : "Guardar resultados visibles"}
           </button>
         )}
-        <div className="card">
-          {resMatches.map(m => {
-            const r = realResults[m.id] || {home:"",away:""};
-            const isPlaceholder = m.home == null;
-            const canEdit = !isPlaceholder;
-            return (
-              <div className={`match-row ${isPlaceholder ? "placeholder" : ""}`} key={m.id}>
-                <div className="match-team home">
-                  {isPlaceholder
-                    ? <span className="placeholder-pill">{m.homePlaceholder}</span>
-                    : <><FlagImg team={m.home}/><span className="name">{m.home}</span></>}
-                </div>
-                <div className="match-score">
-                  <input className={`score-input ${r.home !== "" ? "filled" : ""}`}
-                    type="number" inputMode="numeric" min="0"
-                    value={r.home} onChange={e => setReal(m.id, "home", e.target.value)}
-                    placeholder="–" disabled={readOnly || !canEdit || isPlaceholder}/>
-                  <span className="score-sep">:</span>
-                  <input className={`score-input ${r.away !== "" ? "filled" : ""}`}
-                    type="number" inputMode="numeric" min="0"
-                    value={r.away} onChange={e => setReal(m.id, "away", e.target.value)}
-                    placeholder="–" disabled={readOnly || !canEdit || isPlaceholder}/>
-                </div>
-                <div className="match-team away">
-                  {isPlaceholder
-                    ? <span className="placeholder-pill">{m.awayPlaceholder}</span>
-                    : <><span className="name">{m.away}</span><FlagImg team={m.away}/></>}
-                </div>
-                <div className="match-meta">
-                  {r.home !== ""
-                    ? <span className="status-badge status-finished"><Icon.Check size={9}/>Cargado</span>
-                    : <span className="status-badge status-soon"><Icon.Clock size={9}/>Por cargar</span>}
-                  <span style={{marginLeft: 6}}>{m.date} · {m.time}</span>
+        {resultDays.map(day => (
+          <div className="card group-card" key={day.key}>
+            <div className="group-head open">
+              <div className="group-badge">{day.matches.length}</div>
+              <div>
+                <div className="group-title">{day.label}</div>
+                <div className="muted-2" style={{fontSize: 11, marginTop: 1}}>
+                  {day.matches.map(m => (m.phase || "groups") === "groups" ? `G${m.group}` : (PHASES.find(p => p.id === matchPhase(m))?.label || matchPhase(m))).filter((label, i, arr) => arr.indexOf(label) === i).join(" · ")}
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+            {day.matches.map(m => {
+              const r = realResults[m.id] || {home:"",away:""};
+              const isPlaceholder = m.home == null;
+              const canEdit = !isPlaceholder;
+              const matchLabel = (m.phase || "groups") === "groups" && m.group ? `Grupo ${m.group}` : null;
+              return (
+                <div className={`match-row ${isPlaceholder ? "placeholder" : ""}`} key={m.id}>
+                  <div className="match-team home">
+                    {isPlaceholder
+                      ? <span className="placeholder-pill">{m.homePlaceholder}</span>
+                      : <><FlagImg team={m.home}/><span className="name">{m.home}</span></>}
+                  </div>
+                  <div className="match-score">
+                    <input className={`score-input ${r.home !== "" ? "filled" : ""}`}
+                      type="number" inputMode="numeric" min="0"
+                      value={r.home} onChange={e => setReal(m.id, "home", e.target.value)}
+                      placeholder="–" disabled={readOnly || !canEdit || isPlaceholder}/>
+                    <span className="score-sep">:</span>
+                    <input className={`score-input ${r.away !== "" ? "filled" : ""}`}
+                      type="number" inputMode="numeric" min="0"
+                      value={r.away} onChange={e => setReal(m.id, "away", e.target.value)}
+                      placeholder="–" disabled={readOnly || !canEdit || isPlaceholder}/>
+                  </div>
+                  <div className="match-team away">
+                    {isPlaceholder
+                      ? <span className="placeholder-pill">{m.awayPlaceholder}</span>
+                      : <><span className="name">{m.away}</span><FlagImg team={m.away}/></>}
+                  </div>
+                  <div className="match-meta">
+                    {r.home !== ""
+                      ? <span className="status-badge status-finished"><Icon.Check size={9}/>Cargado</span>
+                      : <span className="status-badge status-soon"><Icon.Clock size={9}/>Por cargar</span>}
+                    {matchLabel && <span style={{marginLeft: 6}}>{matchLabel}</span>}
+                    <span style={{marginLeft: 6}}>{m.date} · {m.time}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </>
   );
@@ -3115,16 +3247,16 @@ function applyBackendData({ matches = [], leaderboard = [], users = [], phases =
   if (!window.QUINIELA_DATA) return;
 
   if (matches.length) {
-    const mappedMatches = matches.map(mapMatchFromApi);
-    const groupMatches = mappedMatches.filter(m => m.phase === "groups");
-    const koMatches = mappedMatches.filter(m => m.phase !== "groups");
+    const mappedMatches = sortMatchesByKickoff(matches.map(mapMatchFromApi));
+    const groupMatches = sortMatchesByKickoff(mappedMatches.filter(m => m.phase === "groups"));
+    const koMatches = sortMatchesByKickoff(mappedMatches.filter(m => m.phase !== "groups"));
 
     window.QUINIELA_DATA.MATCHES_GROUPS = groupMatches;
     if (koMatches.length) window.QUINIELA_DATA.MATCHES_KO = koMatches;
-    window.QUINIELA_DATA.MATCHES = [
+    window.QUINIELA_DATA.MATCHES = sortMatchesByKickoff([
       ...window.QUINIELA_DATA.MATCHES_GROUPS,
       ...window.QUINIELA_DATA.MATCHES_KO,
-    ];
+    ]);
     window.QUINIELA_DATA.GROUPS = groupMatches.reduce((acc, match) => {
       const teams = acc[match.group] || [];
       if (match.home && !teams.includes(match.home)) teams.push(match.home);
