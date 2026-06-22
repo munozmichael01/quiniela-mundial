@@ -2524,7 +2524,13 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
     const scroller = matrixScrollRef.current;
     const target = matrixTodayRef.current;
     if (!scroller || !target) return;
-    scroller.scrollTo({ left: Math.max(0, target.offsetLeft), behavior: "smooth" });
+    requestAnimationFrame(() => {
+      const sticky = scroller.querySelector(".head-player");
+      const stickyRight = sticky?.getBoundingClientRect().right ?? scroller.getBoundingClientRect().left;
+      const targetLeft = target.getBoundingClientRect().left;
+      const delta = targetLeft - stickyRight;
+      scroller.scrollTo({ left: Math.max(0, scroller.scrollLeft + delta), behavior: "smooth" });
+    });
   }, [phaseFilter, groupFilter, matrixFocusMatch?.id]);
 
   return (
