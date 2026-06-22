@@ -694,6 +694,8 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
   const { MATCHES, PHASES, matchPhase } = window.QUINIELA_DATA;
   const [phaseTab, setPhaseTab] = React.useState("groups");
   const [activeDayKey, setActiveDayKey] = React.useState("");
+  const dateTabsRef = React.useRef(null);
+  const activeDateRef = React.useRef(null);
   const [toast, setToast] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
@@ -754,6 +756,7 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
   const phaseUnlocked = phaseOpen[phaseTab];
   const phaseMatches = sortMatchesByKickoff(MATCHES.filter(m => matchPhase(m) === phaseTab));
   const availableDays = groupMatchesByDay(phaseMatches);
+  const availableDayKeys = availableDays.map(day => day.key).join("|");
   const selectedDayKey = availableDays.some(day => day.key === activeDayKey)
     ? activeDayKey
     : "";
@@ -768,15 +771,17 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
       return;
     }
     const todayKey = dayKeyFromDate(new Date(window.getNow()));
-    if (availableDays.some(day => day.key === todayKey)) {
-      if (activeDayKey !== todayKey) setActiveDayKey(todayKey);
-      return;
-    }
     if (availableDays.some(day => day.key === activeDayKey)) return;
     const todayMs = dayMsFromKey(todayKey);
+    const todayDay = availableDays.find(day => day.key === todayKey);
     const nextDay = availableDays.find(day => dayMsFromKey(day.key) >= todayMs);
-    setActiveDayKey((nextDay || availableDays[0]).key);
-  }, [phaseTab, activeDayKey, availableDays]);
+    setActiveDayKey((todayDay || nextDay || availableDays[0]).key);
+  }, [phaseTab, activeDayKey, availableDayKeys]);
+
+  React.useEffect(() => {
+    if (!selectedDayKey) return;
+    activeDateRef.current?.scrollIntoView({ block: "nearest", inline: "start" });
+  }, [selectedDayKey]);
 
   return (
     <>
@@ -819,7 +824,10 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
             <button
               key={ph.id}
               className={`phase-tab ${phaseTab === ph.id ? "active" : ""} ${!ph.open ? "locked" : ""}`}
-              onClick={() => setPhaseTab(ph.id)}
+              onClick={() => {
+                if (phaseTab !== ph.id) setActiveDayKey("");
+                setPhaseTab(ph.id);
+              }}
             >
               <span className="phase-tab-label">
                 {!ph.open && <Icon.Lock size={10}/>}
@@ -833,10 +841,11 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
 
       {availableDays.length > 0 && (
         <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-          <div className="date-tabs" aria-label="Filtrar por fecha">
+          <div className="date-tabs" ref={dateTabsRef} aria-label="Filtrar por fecha">
             {availableDays.map(day => (
               <button
                 key={day.key}
+                ref={selectedDayKey === day.key ? activeDateRef : null}
                 className={`date-tab ${selectedDayKey === day.key ? "active" : ""}`}
                 onClick={() => setActiveDayKey(day.key)}
               >
@@ -1240,7 +1249,7 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
       </div>
 
       <div className="section" style={{paddingBottom: 8}}>
-        <div className="pill-tabs" style={{display: "flex"}}>
+        <div className="pill-tabs leaderboard-view-tabs">
           <button className={`pill-tab ${view === "players" ? "active" : ""}`} onClick={() => setView("players")}>Jugadores</button>
           <button className={`pill-tab ${view === "groups" ? "active" : ""}`} onClick={() => setView("groups")}>Grupos</button>
         </div>
