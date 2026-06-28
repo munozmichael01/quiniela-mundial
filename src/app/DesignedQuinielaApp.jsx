@@ -428,7 +428,7 @@ window.scorePrediction = function(pred, real) {
 
 // Aggregate stats for a participant
 window.aggregateStats = function(predictions, realResults, options = {}) {
-  const bucket = options.bucket || "knockout";
+  const bucket = options.bucket || "all";
   const matches = (window.QUINIELA_DATA?.MATCHES || MATCHES).filter(m => matchInBucket(m, bucket));
   let exactos = 0, parciales = 0, fallos = 0, completados = 0, pts = 0;
   matches.forEach(m => {
@@ -856,10 +856,7 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
 
   const knockoutOpen = PHASES.some(ph => ph.id !== "bonus" && ph.id !== "groups" && phaseOpen[ph.id]);
   const bucketUnlocked = bucketTab === "groups" ? phaseOpen.groups : knockoutOpen;
-  const displayMatches = React.useMemo(
-    () => withPredictedKnockoutLabels(MATCHES, predictions),
-    [MATCHES, predictions]
-  );
+  const displayMatches = React.useMemo(() => MATCHES, [MATCHES]);
   const bucketMatches = displayMatches.filter(m => matchInBucket(m, bucketTab));
   const totalMatches = bucketMatches.length;
   const completed = bucketMatches.filter(m => {
@@ -1418,8 +1415,8 @@ window.MisAciertosScreen = MisAciertosScreen;
 function LeaderboardScreen({ currentUser, realResults, participantsKey, participantBonus, officialBonus }) {
   const [sortBy, setSortBy] = React.useState("pts");
   const [view, setView] = React.useState("players");
-  const [scoreBucket, setScoreBucket] = React.useState("knockout");
-  const scoredTotal = (window.QUINIELA_DATA.MATCHES || MATCHES).filter(m => matchInBucket(m, scoreBucket)).length;
+  const scoreBucket = "all";
+  const scoredTotal = (window.QUINIELA_DATA.MATCHES || MATCHES).length;
   const participantCount = (window.QUINIELA_DATA.PARTICIPANTS || []).length;
 
   const enriched = React.useMemo(() => {
@@ -1427,12 +1424,12 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
     const pb = participantBonus || window.QUINIELA_DATA.PARTICIPANT_BONUS || {};
     const ob = officialBonus || window.QUINIELA_DATA.OFFICIAL_BONUS || {};
     return PARTICIPANTS.map(p => {
-      const stats = window.aggregateStats(p.predictions, realResults, { bucket: scoreBucket });
-      const bonPts = scoreBucket === "knockout" ? window.calcBonusPts(pb[p.user], ob) : 0;
+      const stats = window.aggregateStats(p.predictions, realResults, { bucket: "all" });
+      const bonPts = window.calcBonusPts(pb[p.user], ob);
       const isMe = currentUser && currentUser.user === p.user;
       return { ...p, ...stats, matchPts: stats.pts, bonPts, pts: stats.pts + bonPts, isMe };
     });
-  }, [realResults, currentUser, participantsKey, participantBonus, officialBonus, scoreBucket]);
+  }, [realResults, currentUser, participantsKey, participantBonus, officialBonus]);
 
   const sorted = React.useMemo(() => {
     const arr = [...enriched];
@@ -1456,37 +1453,23 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
         <div className="topbar-logo">Q26</div>
         <div>
           <div className="topbar-title">{view === "players" ? "Clasificación" : view === "knockouts" ? "Knockouts" : "Grupos"}</div>
-          <div className="topbar-sub">{bucketLabel(scoreBucket)} · {participantCount} participantes</div>
+          <div className="topbar-sub">Mundial 2026 · {participantCount} participantes</div>
         </div>
       </div>
 
       <div className="section" style={{paddingBottom: 8}}>
-        <SegmentedControl
-          ariaLabel="Fase de tabla"
-          value={scoreBucket}
-          onChange={(id) => { setScoreBucket(id); setView("players"); }}
-          className="stacked-control"
-          options={[
-            { id: "groups", label: "Fase de grupos" },
-            { id: "knockout", label: "Eliminatorias" },
-          ]}
-        />
         <SegmentedControl
           ariaLabel="Vista de tabla"
           value={view}
           onChange={setView}
           options={[
             { id: "players", label: "Jugadores" },
-            ...(scoreBucket === "groups"
-              ? [{ id: "groups", label: "Grupos" }]
-              : [{ id: "knockouts", label: "Knockouts" }]),
+            { id: "knockouts", label: "Knockouts" },
           ]}
         />
       </div>
 
-      {view === "groups" ? (
-        <GroupsTab matches={window.QUINIELA_DATA.MATCHES || MATCHES} realResults={realResults} showKnockout={false}/>
-      ) : view === "knockouts" ? (
+      {view === "knockouts" ? (
         <KnockoutsTab matches={window.QUINIELA_DATA.MATCHES || MATCHES} realResults={realResults}/>
       ) : (
         <>
@@ -1572,8 +1555,8 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
         </div>
 
         <div className="muted-2" style={{marginTop: 14, fontSize: 11, textAlign: "center", lineHeight: 1.6}}>
-          <strong>Exacto</strong> +3 pts · <strong>Parcial</strong> +1 pt{scoreBucket === "knockout" ? <> · <strong>Bonus</strong> +5 pts c/u</> : null}<br/>
-          {scoreBucket === "knockout" ? "Eliminatorias empieza separada de grupos y suma bonus." : "Fase de grupos queda disponible como histórico."}
+          <strong>Exacto</strong> +3 pts · <strong>Parcial</strong> +1 pt · <strong>Bonus</strong> +5 pts c/u<br/>
+          Puntuación acumulada de toda la quiniela.
         </div>
       </div>
         </>
@@ -1738,18 +1721,17 @@ window.BonusScreen = BonusScreen;
 function AdminLeaderboardTab({ participants, matches, realResults, participantBonus, officialBonus }) {
   const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
   const [sortBy, setSortBy] = React.useState("pts");
-  const [scoreBucket, setScoreBucket] = React.useState("knockout");
-  const scoredTotal = MATCHES.filter(m => matchInBucket(m, scoreBucket)).length;
+  const scoredTotal = MATCHES.length;
 
   const enriched = React.useMemo(() => {
     const pb = participantBonus || window.QUINIELA_DATA.PARTICIPANT_BONUS || {};
     const ob = officialBonus || window.QUINIELA_DATA.OFFICIAL_BONUS || {};
     return participants.map(p => {
-      const stats = window.aggregateStats(p.predictions, realResults, { bucket: scoreBucket });
-      const bonPts = scoreBucket === "knockout" ? window.calcBonusPts(pb[p.user], ob) : 0;
+      const stats = window.aggregateStats(p.predictions, realResults, { bucket: "all" });
+      const bonPts = window.calcBonusPts(pb[p.user], ob);
       return { ...p, ...stats, matchPts: stats.pts, bonPts, pts: stats.pts + bonPts };
     });
-  }, [participants, realResults, participantBonus, officialBonus, scoreBucket]);
+  }, [participants, realResults, participantBonus, officialBonus]);
 
   const sorted = React.useMemo(() => {
     const arr = [...enriched];
@@ -1774,7 +1756,7 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
               <Icon.Trophy size={20}/>
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div className="muted-2" style={{fontSize:10.5,letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}}>Líder {bucketLabel(scoreBucket).toLowerCase()}</div>
+              <div className="muted-2" style={{fontSize:10.5,letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}}>Líder general</div>
               <div style={{fontWeight:800,fontSize:16,marginTop:2}}>{leader.name}</div>
               <div className="muted-2" style={{marginTop:2}}>{leader.pts} pts · {leader.exactos} exactos · {leader.parciales} parciales</div>
             </div>
@@ -1783,16 +1765,6 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
       )}
 
       <div className="section" style={{paddingTop: 4, paddingBottom: 8}}>
-        <SegmentedControl
-          ariaLabel="Fase de tabla admin"
-          value={scoreBucket}
-          onChange={setScoreBucket}
-          className="stacked-control"
-          options={[
-            { id: "groups", label: "Fase de grupos" },
-            { id: "knockout", label: "Eliminatorias" },
-          ]}
-        />
         <SegmentedControl
           ariaLabel="Orden de tabla admin"
           value={sortBy}
