@@ -3125,17 +3125,37 @@ function DesignedOriginalApp() {
         setPhaseOpen(prev => ({ ...prev, ...next }));
       }).catch(() => {});
     };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") refreshPhases();
+    const refreshPredictions = () => {
+      const idToAlias = window.QUINIELA_DATA.ID_TO_ALIAS;
+      if (!idToAlias) return;
+      api("/api/predictions/all").then(({ predictions: allPreds = [] }) => {
+        if (cancelled) return;
+        const predsByAlias = {};
+        allPreds.forEach(p => {
+          const alias = idToAlias[p.user_id];
+          if (!alias) return;
+          if (!predsByAlias[alias]) predsByAlias[alias] = {};
+          predsByAlias[alias][p.match_id] = { home: String(p.home_score), away: String(p.away_score) };
+        });
+        window.QUINIELA_DATA.PARTICIPANTS = (window.QUINIELA_DATA.PARTICIPANTS || []).map(p => ({
+          ...p,
+          predictions: predsByAlias[p.user] || {},
+        }));
+        setParticipantsLoaded(t => !t);
+      }).catch(() => {});
     };
-    refreshPhases();
+    const refresh = () => { refreshPhases(); refreshPredictions(); };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    refresh();
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("focus", refreshPhases);
-    const interval = window.setInterval(refreshPhases, 30000);
+    window.addEventListener("focus", refresh);
+    const interval = window.setInterval(refresh, 30000);
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("focus", refreshPhases);
+      window.removeEventListener("focus", refresh);
       window.clearInterval(interval);
     };
   }, [user]);
@@ -3211,6 +3231,7 @@ function DesignedOriginalApp() {
           initials: toInitials(u.nombre), predictions: {},
         }));
       }
+      window.QUINIELA_DATA.ID_TO_ALIAS = idToAlias;
 
       const predsByAlias = {};
       allPreds.forEach(p => {
