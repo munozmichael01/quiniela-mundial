@@ -3266,13 +3266,14 @@ function DesignedOriginalApp() {
     }).length;
   }, [predictions]);
 
-  // Unlock logic: Grupos is historical and always visible; Eliminatorias unlocks when its open matches are filled.
+  // Unlock logic: Grupos always visible (closed phase). Eliminatorias visible when
+  // all matches of the currently open knockout phase are filled by the player.
   const canSeeKnockoutMatrix = React.useMemo(() => {
     const { MATCHES } = window.QUINIELA_DATA;
-    const knockoutOpen = PHASES.some(ph => ph.id !== "bonus" && ph.id !== "groups" && phaseOpen[ph.id]);
-    if (!knockoutOpen) return true;
+    const openKOPhases = PHASES.filter(ph => ph.id !== "bonus" && ph.id !== "groups" && phaseOpen[ph.id]);
+    if (openKOPhases.length === 0) return true;
     const openKnockoutMatches = MATCHES.filter(m =>
-      matchBucket(m) === "knockout" &&
+      openKOPhases.some(ph => ph.id === matchPhase(m)) &&
       window.matchStatus(m) === "upcoming"
     );
     return openKnockoutMatches.every(m => {

@@ -84,10 +84,9 @@ export async function PUT(req: NextRequest) {
   }
 
   const openPhases = new Map((phaseSettings ?? []).map((p) => [p.id, p.is_open]));
-  const knockoutOpen = Array.from(KO_PHASES).some((phase) => openPhases.get(phase) === true);
   const closed = (matches ?? []).filter((m) => {
     const phase = matchPhase(m.group);
-    return KO_PHASES.has(phase) ? !knockoutOpen : openPhases.get(phase) !== true;
+    return openPhases.get(phase) !== true;
   });
   if (closed.length > 0) {
     return NextResponse.json(
