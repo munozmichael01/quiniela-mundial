@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { createServiceClient, fetchAllRows } from "@/lib/supabase/server";
 import { calcularPuntos, calcularPuntosBonus } from "@/lib/points";
 
+const KO_PHASES = new Set(["r32", "r16", "qf", "sf", "third", "final"]);
+
 export async function GET() {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -16,9 +18,10 @@ export async function GET() {
     { count: matchesTotal },
     { data: predictions },
     { data: results },
+    { data: users },
+    { data: matches },
     { data: bonuses },
     { data: bonusResults },
-    { data: users },
     { data: proximoPartido },
   ] = await Promise.all([
     supabase.from("users").select("*", { count: "exact", head: true }).eq("role", "user"),
@@ -32,6 +35,8 @@ export async function GET() {
         .range(from, to)
     ),
     supabase.from("results").select("match_id, home_score, away_score"),
+    supabase.from("users").select("id, nombre, alias").eq("role", "user"),
+    supabase.from("matches").select("id, group"),
     supabase.from("bonuses").select("user_id, campeon, subcampeon, goleador, mvp, portero"),
     supabase
       .from("bonus_results")
@@ -39,7 +44,6 @@ export async function GET() {
       .order("id", { ascending: false })
       .limit(1)
       .single(),
-    supabase.from("users").select("id, nombre, alias").eq("role", "user"),
     // Próximo partido sin resultado: join via NOT IN sobre match_ids con resultado
     supabase
       .from("matches")
@@ -53,12 +57,17 @@ export async function GET() {
 
   // Calcular puntos por usuario para obtener promedio y líder
   const resultsMap = new Map((results ?? []).map((r) => [r.match_id, r]));
+  const knockoutMatchIds = new Set(
+    (matches ?? [])
+      .filter((match) => KO_PHASES.has(match.group))
+      .map((match) => match.id)
+  );
 
   let totalPuntos = 0;
   let lider: { nombre: string; alias: string; puntos: number } | null = null;
 
   for (const user of users ?? []) {
-    const userPreds = (predictions ?? []).filter((p) => p.user_id === user.id);
+    const userPreds = (predictions ?? []).filter((p) => p.user_id === user.id && knockoutMatchIds.has(p.match_id));
     let puntos = 0;
 
     for (const pred of userPreds) {

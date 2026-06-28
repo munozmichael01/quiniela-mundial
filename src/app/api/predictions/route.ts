@@ -10,6 +10,11 @@ const upsertSchema = z.object({
 });
 
 const batchSchema = z.array(upsertSchema).min(1).max(100);
+const KO_PHASES = new Set(["r32", "r16", "qf", "sf", "third", "final"]);
+
+function matchPhase(matchGroup: string) {
+  return KO_PHASES.has(matchGroup) ? matchGroup : "groups";
+}
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth();
@@ -53,13 +58,40 @@ export async function PUT(req: NextRequest) {
   const matchIds = parsed.data.map((p) => p.match_id);
   const { data: matches } = await supabase
     .from("matches")
-    .select("id, date")
+    .select("id, group, date")
     .in("id", matchIds);
+
+  if ((matches ?? []).length !== matchIds.length) {
+    return NextResponse.json({ error: "Uno o más partidos no existen" }, { status: 400 });
+  }
 
   const locked = (matches ?? []).filter((m) => new Date(m.date) <= new Date());
   if (locked.length > 0) {
     return NextResponse.json(
       { error: "Uno o más partidos ya han comenzado y no pueden editarse" },
+      { status: 409 }
+    );
+  }
+
+  const phases = Array.from(new Set((matches ?? []).map((m) => matchPhase(m.group))));
+  const { data: phaseSettings, error: phaseError } = await supabase
+    .from("phase_settings")
+    .select("id, is_open")
+    .in("id", Array.from(new Set([...phases, ...KO_PHASES])));
+
+  if (phaseError) {
+    return NextResponse.json({ error: phaseError.message }, { status: 500 });
+  }
+
+  const openPhases = new Map((phaseSettings ?? []).map((p) => [p.id, p.is_open]));
+  const knockoutOpen = Array.from(KO_PHASES).some((phase) => openPhases.get(phase) === true);
+  const closed = (matches ?? []).filter((m) => {
+    const phase = matchPhase(m.group);
+    return KO_PHASES.has(phase) ? !knockoutOpen : openPhases.get(phase) !== true;
+  });
+  if (closed.length > 0) {
+    return NextResponse.json(
+      { error: "Uno o más partidos pertenecen a una fase cerrada" },
       { status: 409 }
     );
   }

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.phase_settings (
 
 -- Seed: grupos abiertos por defecto, resto cerrado
 INSERT INTO public.phase_settings (id, is_open) VALUES
+  ('bonus',  true),
   ('groups', true),
   ('r32',    false),
   ('r16',    false),
@@ -26,3 +27,6 @@ CREATE POLICY "phase_settings_read" ON public.phase_settings
 -- Solo admin puede modificar
 CREATE POLICY "phase_settings_admin_write" ON public.phase_settings
   FOR UPDATE USING (is_admin());
+
+CREATE POLICY "phase_settings_admin_insert" ON public.phase_settings
+  FOR INSERT WITH CHECK (is_admin());

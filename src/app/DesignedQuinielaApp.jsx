@@ -58,24 +58,63 @@ const FLAG_CODES = {
 
 const MATCHES_GROUPS = [];
 
-// Eliminatorias — 32 partidos con placeholders de cruces (1A, 2B, …)
+function formatMatchDateTime(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return {
+    date: `${date.getDate()} ${months[date.getMonth()]}`,
+    time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+  };
+}
+
+function venezuelaISO(year, month, day, hour, minute = 0) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00-04:00`;
+}
+
+// Eliminatorias — cruces definidos con horarios EDT / Venezuela
 function buildKnockout() {
-  const monthsEs = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  // Slot labels are illustrative crossings (no Round-of-32 official bracket yet)
-  const r32Pairs = [
-    ["1A","3CD/F"], ["1C","3ABF"], ["1E","3ABCD"], ["1G","3CDFG"],
-    ["2A","2C"],    ["1D","2F"],   ["1B","3GHIJ"], ["1F","3DEFG"],
-    ["1H","3BEFI"], ["2H","2K"],   ["1J","3AEIJ"], ["1I","3HIJK"],
-    ["1K","3DEIJ"], ["2J","2L"],   ["1L","3HIJK"], ["2B","2I"],
+  const make = (id, phase, round, home, away, iso) => {
+    const kickoff = new Date(iso);
+    const formatted = formatMatchDateTime(kickoff);
+    return {
+      id, phase, round, home, away,
+      kickoffMs: kickoff.getTime(),
+      kickoffISO: iso,
+      date: formatted.date,
+      time: formatted.time,
+    };
+  };
+
+  const r32Data = [
+    ["R32-0", "Sudáfrica", "Canadá", venezuelaISO(2026, 6, 28, 15)],
+    ["R32-1", "Brasil", "Japón", venezuelaISO(2026, 6, 29, 13)],
+    ["R32-2", "Alemania", "Paraguay", venezuelaISO(2026, 6, 29, 16, 30)],
+    ["R32-3", "Países Bajos", "Marruecos", venezuelaISO(2026, 6, 29, 21)],
+    ["R32-4", "Costa de Marfil", "Noruega", venezuelaISO(2026, 6, 30, 13)],
+    ["R32-5", "Francia", "Suecia", venezuelaISO(2026, 6, 30, 17)],
+    ["R32-6", "México", "Ecuador", venezuelaISO(2026, 6, 30, 21)],
+    ["R32-7", "Inglaterra", "RD Congo", venezuelaISO(2026, 7, 1, 12)],
+    ["R32-8", "Bélgica", "Senegal", venezuelaISO(2026, 7, 1, 16)],
+    ["R32-9", "Estados Unidos", "Bosnia y Herzegovina", venezuelaISO(2026, 7, 1, 20)],
+    ["R32-10", "España", "Austria", venezuelaISO(2026, 7, 2, 15)],
+    ["R32-11", "Portugal", "Croacia", venezuelaISO(2026, 7, 2, 19)],
+    ["R32-12", "Suiza", "Argelia", venezuelaISO(2026, 7, 2, 23)],
+    ["R32-13", "Australia", "Egipto", venezuelaISO(2026, 7, 3, 14)],
+    ["R32-14", "Argentina", "Cabo Verde", venezuelaISO(2026, 7, 3, 18)],
+    ["R32-15", "Colombia", "Ghana", venezuelaISO(2026, 7, 3, 21, 30)],
   ];
-  const r32 = r32Pairs.map((p, i) => ({
-    id: `R32-${i}`, phase: "r32", round: 4,
-    homePlaceholder: p[0], awayPlaceholder: p[1],
-    home: null, away: null,
-  }));
+
+  const r32 = r32Data.map(([id, home, away, iso]) => make(id, "r32", 4, home, away, iso));
   const r16 = Array.from({length:8}, (_, i) => ({
     id: `R16-${i}`, phase: "r16", round: 5,
-    homePlaceholder: `G R32-${i*2}`, awayPlaceholder: `G R32-${i*2+1}`,
+    homePlaceholder: [
+      "Ganador Sudáfrica/Canadá", "Ganador Alemania/Paraguay", "Ganador Brasil/Japón", "Ganador México/Ecuador",
+      "Ganador Portugal/Croacia", "Ganador EE. UU./Bosnia", "Ganador Argentina/Cabo Verde", "Ganador Suiza/Argelia",
+    ][i],
+    awayPlaceholder: [
+      "Ganador Países Bajos/Marruecos", "Ganador Francia/Suecia", "Ganador Costa de Marfil/Noruega", "Ganador Inglaterra/RD Congo",
+      "Ganador España/Austria", "Ganador Bélgica/Senegal", "Ganador Australia/Egipto", "Ganador Colombia/Ghana",
+    ][i],
     home: null, away: null,
   }));
   const qf = Array.from({length:4}, (_, i) => ({
@@ -100,29 +139,24 @@ function buildKnockout() {
   }];
 
   const all = [...r32, ...r16, ...qf, ...sf, ...third, ...final];
-  // Assign kickoff dates spread across late June and July 2026
-  const schedule = {
-    r32:   { startDay: 18, perDay: 4 },   // 18–21 jun
-    r16:   { startDay: 23, perDay: 2 },   // 23–26 jun (8 matches in 4 days)
-    qf:    { startDay: 28, perDay: 2 },   // 28–29 jun
-    sf:    { startDay: 1,  perDay: 1, month: 6 }, // 1–2 jul
-    third: { startDay: 5,  perDay: 1, month: 6 },
-    final: { startDay: 6,  perDay: 1, month: 6 },
+  const phaseDates = {
+    r16: [venezuelaISO(2026, 7, 4, 12), venezuelaISO(2026, 7, 4, 16), venezuelaISO(2026, 7, 5, 12), venezuelaISO(2026, 7, 5, 16), venezuelaISO(2026, 7, 6, 12), venezuelaISO(2026, 7, 6, 16), venezuelaISO(2026, 7, 7, 12), venezuelaISO(2026, 7, 7, 16)],
+    qf: [venezuelaISO(2026, 7, 9, 15), venezuelaISO(2026, 7, 10, 15), venezuelaISO(2026, 7, 11, 12), venezuelaISO(2026, 7, 11, 16)],
+    sf: [venezuelaISO(2026, 7, 14, 15), venezuelaISO(2026, 7, 15, 15)],
+    third: [venezuelaISO(2026, 7, 18, 15)],
+    final: [venezuelaISO(2026, 7, 19, 15)],
   };
-  const byPhase = {};
-  all.forEach(m => { (byPhase[m.phase] ||= []).push(m); });
-  Object.entries(byPhase).forEach(([phase, list]) => {
-    const s = schedule[phase];
-    list.forEach((m, i) => {
-      const month = s.month != null ? s.month : 5; // 5 = jun (0-indexed)
-      const day = s.startDay + Math.floor(i / s.perDay);
-      const hour = 14 + (i % s.perDay) * 4;
-      m.kickoffMs = Date.UTC(2026, month, day, hour, 0, 0);
-      m.kickoffISO = new Date(m.kickoffMs).toISOString();
-      const d = new Date(m.kickoffMs);
-      m.date = `${d.getDate()} ${monthsEs[d.getMonth()]}`;
-      m.time = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-    });
+  all.forEach((m) => {
+    if (m.kickoffISO) return;
+    const phaseList = all.filter(match => match.phase === m.phase);
+    const phaseIndex = phaseList.findIndex(match => match.id === m.id);
+    const iso = phaseDates[m.phase]?.[phaseIndex] || venezuelaISO(2026, 7, 19, 15);
+    const kickoff = new Date(iso);
+    const formatted = formatMatchDateTime(kickoff);
+    m.kickoffMs = kickoff.getTime();
+    m.kickoffISO = iso;
+    m.date = formatted.date;
+    m.time = formatted.time;
   });
   return all;
 }
@@ -144,6 +178,20 @@ const PHASES = [
 
 // Helper: derive phase of any match
 function matchPhase(m) { return m.phase || "groups"; }
+function matchBucket(m) { return matchPhase(m) === "groups" ? "groups" : "knockout"; }
+function bucketLabel(bucket) { return bucket === "groups" ? "Fase de grupos" : "Eliminatorias"; }
+function compactPhaseLabel(phase) {
+  const labels = {
+    r32: "16avos",
+    r16: "8vos",
+    qf: "4tos",
+    sf: "SF",
+    third: "3er",
+    final: "Final",
+  };
+  return labels[phase] || "KO";
+}
+function matchInBucket(m, bucket) { return bucket === "all" || matchBucket(m) === bucket; }
 
 // Mock players for bonus (originales/genéricos, top scorers de la era)
 const TOP_SCORERS = [
@@ -168,20 +216,6 @@ const GOALKEEPERS = [
 
 const ALL_TEAMS = [];
 
-// Participantes de prueba — usados SOLO en modo Full Preview, nunca como datos reales
-const PREVIEW_PARTICIPANTS_DEFAULT = [
-  { name: "Laura Ramírez",      user: "laura.ramirez",   initials: "LR" },
-  { name: "Diego Morales",      user: "diego.morales",   initials: "DM" },
-  { name: "Andrea Pérez",       user: "andrea.perez",    initials: "AP" },
-  { name: "Carlos Vega",        user: "carlos.vega",     initials: "CV" },
-  { name: "Sofía López",        user: "sofia.lopez",     initials: "SL" },
-  { name: "Mateo Gómez",        user: "mateo.gomez",     initials: "MG" },
-  { name: "Valentina Núñez",    user: "valentina.nunez", initials: "VN" },
-  { name: "Joaquín Torres",     user: "joaquin.torres",  initials: "JT" },
-  { name: "Camila Bravo",       user: "camila.bravo",    initials: "CB" },
-  { name: "Felipe Soto",        user: "felipe.soto",     initials: "FS" },
-];
-
 function initials(name) {
   const parts = String(name || "").trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -195,7 +229,7 @@ window.QUINIELA_DATA = {
   GROUPS, FLAGS, FLAG_CODES, MATCHES, MATCHES_GROUPS, MATCHES_KO, PHASES,
   TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS,
   ALL_TEAMS, PARTICIPANTS, MOCK_USERS, initials, matchPhase,
-  PREVIEW_PARTICIPANTS_RAW: PREVIEW_PARTICIPANTS_DEFAULT,
+  matchBucket, bucketLabel, matchInBucket,
 };
 
 // =============================================================
@@ -315,6 +349,71 @@ function groupMatchesByDay(matches) {
   }, []);
 }
 
+function winnerLabel(match, prediction) {
+  if (!match || !prediction || prediction.home === "" || prediction.away === "") return "";
+  const homeScore = Number(prediction.home);
+  const awayScore = Number(prediction.away);
+  if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore === awayScore) return "";
+  return homeScore > awayScore
+    ? (match.home || match.homePlaceholder || "")
+    : (match.away || match.awayPlaceholder || "");
+}
+
+function winnerTeam(match, result) {
+  if (!match || !result || result.home === "" || result.away === "") return null;
+  const homeScore = Number(result.home);
+  const awayScore = Number(result.away);
+  if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore === awayScore) return null;
+  if (homeScore > awayScore) return { name: match.home || match.homePlaceholder || "", flagSource: match.home || null };
+  return { name: match.away || match.awayPlaceholder || "", flagSource: match.away || null };
+}
+
+function withPredictedKnockoutLabels(matches, predictions) {
+  const copies = sortMatchesByKickoff(matches).map(m => ({ ...m }));
+  const byPhase = (phase) => copies.filter(m => matchPhase(m) === phase);
+  const setFromWinners = (targetPhase, sourcePhase, pairs) => {
+    const targets = byPhase(targetPhase);
+    const sources = byPhase(sourcePhase);
+    targets.forEach((target, index) => {
+      const [homeIndex, awayIndex] = pairs[index] || [];
+      const homeWinner = winnerLabel(sources[homeIndex], predictions[sources[homeIndex]?.id]);
+      const awayWinner = winnerLabel(sources[awayIndex], predictions[sources[awayIndex]?.id]);
+      if (homeWinner) {
+        target.home = null;
+        target.homePlaceholder = homeWinner;
+      }
+      if (awayWinner) {
+        target.away = null;
+        target.awayPlaceholder = awayWinner;
+      }
+    });
+  };
+
+  setFromWinners("r16", "r32", [[0,3],[2,5],[1,4],[6,7],[11,10],[9,8],[14,13],[12,15]]);
+  setFromWinners("qf", "r16", [[0,1],[2,3],[4,5],[6,7]]);
+  setFromWinners("sf", "qf", [[0,1],[2,3]]);
+  setFromWinners("final", "sf", [[0,1]]);
+
+  const third = byPhase("third")[0];
+  const sf = byPhase("sf");
+  if (third) {
+    const loser = (match) => {
+      const p = predictions[match?.id];
+      if (!match || !p || p.home === "" || p.away === "") return "";
+      const homeScore = Number(p.home);
+      const awayScore = Number(p.away);
+      if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore === awayScore) return "";
+      return homeScore < awayScore
+        ? (match.home || match.homePlaceholder || "")
+        : (match.away || match.awayPlaceholder || "");
+    };
+    third.homePlaceholder = loser(sf[0]) || third.homePlaceholder;
+    third.awayPlaceholder = loser(sf[1]) || third.awayPlaceholder;
+  }
+
+  return copies;
+}
+
 // Scoring: exacto = 3, parcial (mismo signo ganador/empate) = 1, fallo = 0
 // Devuelve { type: 'exacto' | 'parcial' | 'fallo' | null, pts: 0-3 }
 window.scorePrediction = function(pred, real) {
@@ -328,9 +427,11 @@ window.scorePrediction = function(pred, real) {
 };
 
 // Aggregate stats for a participant
-window.aggregateStats = function(predictions, realResults) {
+window.aggregateStats = function(predictions, realResults, options = {}) {
+  const bucket = options.bucket || "knockout";
+  const matches = (window.QUINIELA_DATA?.MATCHES || MATCHES).filter(m => matchInBucket(m, bucket));
   let exactos = 0, parciales = 0, fallos = 0, completados = 0, pts = 0;
-  (window.QUINIELA_DATA?.MATCHES || MATCHES).forEach(m => {
+  matches.forEach(m => {
     const p = predictions[m.id];
     if (p && p.home !== "" && p.away !== "") completados++;
     const s = window.scorePrediction(p, realResults[m.id]);
@@ -339,7 +440,7 @@ window.aggregateStats = function(predictions, realResults) {
     else if (s.type === "fallo") fallos++;
     pts += s.pts;
   });
-  return { exactos, parciales, fallos, completados, pts };
+  return { exactos, parciales, fallos, completados, pts, total: matches.length };
 };
 
 // 5 pts por cada bonus correcto
@@ -543,6 +644,60 @@ window.FlagImg = FlagImg;
 
 window.Icon = Icon;
 
+function SegmentedControl({ options, value, onChange, ariaLabel, className = "", compact = false }) {
+  return (
+    <div className={`segmented-control ${compact ? "compact" : ""} ${className}`} role="tablist" aria-label={ariaLabel}>
+      {options.map(option => (
+        <button
+          key={option.id}
+          type="button"
+          role="tab"
+          aria-selected={value === option.id}
+          className={`segmented-option ${value === option.id ? "active" : ""} ${option.disabled ? "disabled" : ""}`}
+          disabled={option.disabled}
+          onClick={() => onChange(option.id)}
+        >
+          <span className="segmented-label">
+            {option.icon}
+            {option.label}
+          </span>
+          {option.meta != null && <span className="segmented-meta">{option.meta}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AdminNav({ tabs, value, onChange }) {
+  return (
+    <nav className="admin-nav" aria-label="Sección admin">
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          type="button"
+          className={`admin-nav-item ${value === tab.id ? "active" : ""}`}
+          onClick={() => onChange(tab.id)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function SelectControl({ label, value, onChange, options, className = "" }) {
+  return (
+    <div className={`control-field ${className}`}>
+      {label && <label className="label">{label}</label>}
+      <select className="select" value={value} onChange={e => onChange(e.target.value)}>
+        {options.map(option => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 
 
 
@@ -692,26 +847,33 @@ window.LoginScreen = LoginScreen;
 
 function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen }) {
   const { MATCHES, PHASES, matchPhase } = window.QUINIELA_DATA;
-  const [phaseTab, setPhaseTab] = React.useState("groups");
+  const [bucketTab, setBucketTab] = React.useState("knockout");
   const [activeDayKey, setActiveDayKey] = React.useState("");
   const dateTabsRef = React.useRef(null);
   const activeDateRef = React.useRef(null);
   const [toast, setToast] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
-  const totalMatches = MATCHES.length;
-  const completed = MATCHES.filter(m => {
+  const knockoutOpen = PHASES.some(ph => ph.id !== "bonus" && ph.id !== "groups" && phaseOpen[ph.id]);
+  const bucketUnlocked = bucketTab === "groups" ? phaseOpen.groups : knockoutOpen;
+  const displayMatches = React.useMemo(
+    () => withPredictedKnockoutLabels(MATCHES, predictions),
+    [MATCHES, predictions]
+  );
+  const bucketMatches = displayMatches.filter(m => matchInBucket(m, bucketTab));
+  const totalMatches = bucketMatches.length;
+  const completed = bucketMatches.filter(m => {
     const p = predictions[m.id];
     return p && p.home !== "" && p.away !== "" && p.home != null && p.away != null;
   }).length;
 
   const points = React.useMemo(() => {
     let pts = 0;
-    MATCHES.forEach(m => {
+    bucketMatches.forEach(m => {
       pts += window.scorePrediction(predictions[m.id], realResults[m.id]).pts;
     });
     return pts;
-  }, [predictions, realResults]);
+  }, [bucketMatches, predictions, realResults]);
 
   function setScore(matchId, side, value) {
     const clean = value.replace(/[^0-9]/g, "").slice(0, 2);
@@ -722,10 +884,18 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
   }
 
   async function save() {
+    const matchById = new Map(MATCHES.map(m => [String(m.id), m]));
     const rows = Object.entries(predictions)
-      .filter(([, p]) => p.home !== "" && p.away !== "")
-      .map(([match_id, p]) => ({
-        match_id: Number(match_id),
+      .filter(([matchId, p]) => {
+        const match = matchById.get(matchId);
+        return match
+          && (matchInBucket(match, "groups") ? phaseOpen.groups : knockoutOpen)
+          && window.matchStatus(match) === "upcoming"
+          && p.home !== ""
+          && p.away !== "";
+      })
+      .map(([matchId, p]) => ({
+        match_id: Number(matchId),
         home_score: Number(p.home),
         away_score: Number(p.away),
       }));
@@ -734,27 +904,32 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
     try {
       await api("/api/predictions", { method: "PUT", body: JSON.stringify(rows) });
       setToast("Pronósticos guardados");
-    } catch {
-      setToast("Error al guardar. Inténtalo de nuevo.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Error al guardar. Inténtalo de nuevo.");
     } finally {
       setSaving(false);
       setTimeout(() => setToast(""), 2500);
     }
   }
 
-  // Phase tab counts (bonus excluded — it has its own section)
-  const phaseCounts = PHASES.filter(ph => ph.id !== "bonus").map(ph => {
-    const inPhase = MATCHES.filter(m => matchPhase(m) === ph.id);
+  const bucketCounts = ["groups", "knockout"].map(bucket => {
+    const inPhase = displayMatches.filter(m => matchInBucket(m, bucket));
     const done = inPhase.filter(m => {
       const p = predictions[m.id];
       return p && p.home !== "" && p.away !== "";
     }).length;
-    return { ...ph, done, total: inPhase.length, open: phaseOpen[ph.id] };
+    return {
+      id: bucket,
+      label: bucketLabel(bucket),
+      done,
+      total: inPhase.length,
+      open: bucket === "groups" ? phaseOpen.groups : knockoutOpen,
+    };
   });
 
-  const activePhase = PHASES.find(p => p.id === phaseTab) || PHASES[0];
-  const phaseUnlocked = phaseOpen[phaseTab];
-  const phaseMatches = sortMatchesByKickoff(MATCHES.filter(m => matchPhase(m) === phaseTab));
+  const activePhase = bucketCounts.find(p => p.id === bucketTab) || bucketCounts[0];
+  const phaseUnlocked = bucketUnlocked;
+  const phaseMatches = sortMatchesByKickoff(bucketMatches);
   const availableDays = groupMatchesByDay(phaseMatches);
   const availableDayKeys = availableDays.map(day => day.key).join("|");
   const selectedDayKey = availableDays.some(day => day.key === activeDayKey)
@@ -776,17 +951,29 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
     const todayDay = availableDays.find(day => day.key === todayKey);
     const nextDay = availableDays.find(day => dayMsFromKey(day.key) >= todayMs);
     setActiveDayKey((todayDay || nextDay || availableDays[0]).key);
-  }, [phaseTab, activeDayKey, availableDayKeys]);
+  }, [bucketTab, activeDayKey, availableDayKeys]);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!selectedDayKey) return;
     const scroller = dateTabsRef.current;
     const active = activeDateRef.current;
     if (!scroller || !active) return;
-    const styles = window.getComputedStyle(scroller);
-    const inset = parseFloat(styles.paddingLeft) || 0;
-    scroller.scrollTo({ left: Math.max(0, active.offsetLeft - inset), behavior: "smooth" });
-  }, [selectedDayKey]);
+    const alignActiveDate = () => {
+      const styles = window.getComputedStyle(scroller);
+      const inset = parseFloat(styles.paddingLeft) || 0;
+      const scrollerRect = scroller.getBoundingClientRect();
+      const activeRect = active.getBoundingClientRect();
+      const left = scroller.scrollLeft + activeRect.left - scrollerRect.left - inset;
+      scroller.scrollTo({ left: Math.max(0, left), behavior: "auto" });
+    };
+    alignActiveDate();
+    const frame1 = window.requestAnimationFrame(alignActiveDate);
+    const frame2 = window.requestAnimationFrame(() => window.requestAnimationFrame(alignActiveDate));
+    return () => {
+      window.cancelAnimationFrame(frame1);
+      window.cancelAnimationFrame(frame2);
+    };
+  }, [selectedDayKey, availableDayKeys, bucketTab]);
 
   return (
     <>
@@ -822,26 +1009,22 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
         </div>
       </div>
 
-      {/* Phase tabs */}
+      {/* Bucket tabs */}
       <div className="section" style={{paddingTop: 4, paddingBottom: 8}}>
-        <div className="phase-tabs">
-          {phaseCounts.map(ph => (
-            <button
-              key={ph.id}
-              className={`phase-tab ${phaseTab === ph.id ? "active" : ""} ${!ph.open ? "locked" : ""}`}
-              onClick={() => {
-                if (phaseTab !== ph.id) setActiveDayKey("");
-                setPhaseTab(ph.id);
-              }}
-            >
-              <span className="phase-tab-label">
-                {!ph.open && <Icon.Lock size={10}/>}
-                {ph.label}
-              </span>
-              <span className="phase-tab-count">{ph.done}/{ph.total}</span>
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          ariaLabel="Bloque de pronósticos"
+          value={bucketTab}
+          onChange={(id) => {
+            if (bucketTab !== id) setActiveDayKey("");
+            setBucketTab(id);
+          }}
+          options={bucketCounts.map(ph => ({
+            id: ph.id,
+            label: ph.label,
+            meta: `${ph.done}/${ph.total}`,
+            icon: !ph.open ? <Icon.Lock size={10}/> : null,
+          }))}
+        />
       </div>
 
       {availableDays.length > 0 && (
@@ -875,7 +1058,7 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
       )}
 
       {/* Group view */}
-      {phaseTab === "groups" && (
+      {bucketTab === "groups" && (
         <div className="section" style={{paddingTop: 0}}>
           <div className="section-title">{selectedDayKey ? "Partidos del día" : "Grupos · 12 grupos · 72 partidos"}</div>
           {visibleDays.map(day => {
@@ -913,9 +1096,9 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
       )}
 
       {/* Knockout view */}
-      {phaseTab !== "groups" && (
+      {bucketTab !== "groups" && (
         <div className="section" style={{paddingTop: 0}}>
-          <div className="section-title">{activePhase.label} · {activePhase.count} {activePhase.count === 1 ? "partido" : "partidos"}</div>
+          <div className="section-title">Eliminatorias · {bucketMatches.length} partidos</div>
           {visibleDays.map(day => (
             <div className="card group-card" key={day.key}>
               <div className="group-head open">
@@ -923,7 +1106,7 @@ function PredictionsScreen({ predictions, setPredictions, realResults, phaseOpen
                 <div>
                   <div className="group-title">{day.label}</div>
                   <div className="muted-2" style={{fontSize: 11, marginTop: 1}}>
-                    {activePhase.label}
+                    {day.matches.map(m => PHASES.find(p => p.id === matchPhase(m))?.label || "Eliminatorias").filter((label, i, arr) => arr.indexOf(label) === i).join(" · ")}
                   </div>
                 </div>
               </div>
@@ -1048,9 +1231,11 @@ window.PredictionsScreen = PredictionsScreen;
 
 function MisAciertosScreen({ predictions, realResults }) {
   const [filter, setFilter] = React.useState("all"); // all | acertados | pendientes
+  const [bucket, setBucket] = React.useState("knockout");
 
   const entries = React.useMemo(() => {
     return (window.QUINIELA_DATA.MATCHES || [])
+      .filter(m => matchInBucket(m, bucket))
       .filter(m => {
         const p = predictions[m.id];
         return p && p.home !== "" && p.away !== "";
@@ -1063,7 +1248,7 @@ function MisAciertosScreen({ predictions, realResults }) {
         return { match: m, pred: p, real: r, hasReal, score };
       })
       .sort((a, b) => compareMatchesByKickoff(a.match, b.match));
-  }, [predictions, realResults]);
+  }, [predictions, realResults, bucket]);
 
   const filtered = entries.filter(e => {
     if (filter === "acertados") return ["exacto","parcial"].includes(e.score.type);
@@ -1083,7 +1268,7 @@ function MisAciertosScreen({ predictions, realResults }) {
         <div className="topbar-logo">Q26</div>
         <div>
           <div className="topbar-title">Mis aciertos</div>
-          <div className="topbar-sub">{entries.length} pronósticos registrados</div>
+          <div className="topbar-sub">{bucketLabel(bucket)} · {entries.length} pronósticos registrados</div>
         </div>
       </div>
 
@@ -1105,11 +1290,27 @@ function MisAciertosScreen({ predictions, realResults }) {
       </div>
 
       <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-        <div className="pill-tabs">
-          <button className={`pill-tab ${filter==="all"?"active":""}`} onClick={() => setFilter("all")}>Todos · {entries.length}</button>
-          <button className={`pill-tab ${filter==="acertados"?"active":""}`} onClick={() => setFilter("acertados")}>Acertados</button>
-          <button className={`pill-tab ${filter==="pendientes"?"active":""}`} onClick={() => setFilter("pendientes")}>Pendientes</button>
-        </div>
+        <SegmentedControl
+          ariaLabel="Bloque de aciertos"
+          value={bucket}
+          onChange={setBucket}
+          className="stacked-control"
+          options={[
+            { id: "groups", label: "Fase de grupos" },
+            { id: "knockout", label: "Eliminatorias" },
+          ]}
+        />
+        <SegmentedControl
+          ariaLabel="Filtro de aciertos"
+          value={filter}
+          onChange={setFilter}
+          compact
+          options={[
+            { id: "all", label: "Todos", meta: entries.length },
+            { id: "acertados", label: "Acertados" },
+            { id: "pendientes", label: "Pendientes" },
+          ]}
+        />
       </div>
 
       <div className="section" style={{paddingTop: 8}}>
@@ -1141,11 +1342,14 @@ function MisAciertosScreen({ predictions, realResults }) {
 
 function AciertoRow({ entry }) {
   const { match: m, pred, real, hasReal, score } = entry;
+  const phaseLabel = matchPhase(m) === "groups" ? `G${m.group}` : (window.QUINIELA_DATA.PHASES.find(p => p.id === matchPhase(m))?.label || "Eliminatorias");
+  const homeLabel = m.home || m.homePlaceholder;
+  const awayLabel = m.away || m.awayPlaceholder;
   return (
     <div className="aciertos-row">
       <div style={{minWidth: 0}}>
         <div className="aciertos-meta">
-          <span>G{m.group}</span>
+          <span>{phaseLabel}</span>
           <span>·</span>
           <span>{m.date} · {m.time}</span>
           <span style={{marginLeft: "auto"}}>
@@ -1156,8 +1360,8 @@ function AciertoRow({ entry }) {
         </div>
         <div className="aciertos-teams">
           <div className="aciertos-team">
-            <FlagImg team={m.home}/>
-            <span className="name">{m.home}</span>
+            {m.home && <FlagImg team={m.home}/>}
+            <span className="name">{homeLabel}</span>
           </div>
           <div className="aciertos-scores">
             <div className="aciertos-score-row">
@@ -1176,8 +1380,8 @@ function AciertoRow({ entry }) {
             )}
           </div>
           <div className="aciertos-team away">
-            <span className="name">{m.away}</span>
-            <FlagImg team={m.away}/>
+            <span className="name">{awayLabel}</span>
+            {m.away && <FlagImg team={m.away}/>}
           </div>
         </div>
       </div>
@@ -1214,18 +1418,21 @@ window.MisAciertosScreen = MisAciertosScreen;
 function LeaderboardScreen({ currentUser, realResults, participantsKey, participantBonus, officialBonus }) {
   const [sortBy, setSortBy] = React.useState("pts");
   const [view, setView] = React.useState("players");
+  const [scoreBucket, setScoreBucket] = React.useState("knockout");
+  const scoredTotal = (window.QUINIELA_DATA.MATCHES || MATCHES).filter(m => matchInBucket(m, scoreBucket)).length;
+  const participantCount = (window.QUINIELA_DATA.PARTICIPANTS || []).length;
 
   const enriched = React.useMemo(() => {
     const PARTICIPANTS = window.QUINIELA_DATA.PARTICIPANTS;
     const pb = participantBonus || window.QUINIELA_DATA.PARTICIPANT_BONUS || {};
     const ob = officialBonus || window.QUINIELA_DATA.OFFICIAL_BONUS || {};
     return PARTICIPANTS.map(p => {
-      const stats = window.aggregateStats(p.predictions, realResults);
-      const bonPts = window.calcBonusPts(pb[p.user], ob);
+      const stats = window.aggregateStats(p.predictions, realResults, { bucket: scoreBucket });
+      const bonPts = scoreBucket === "knockout" ? window.calcBonusPts(pb[p.user], ob) : 0;
       const isMe = currentUser && currentUser.user === p.user;
-      return { ...p, ...stats, bonPts, isMe };
+      return { ...p, ...stats, matchPts: stats.pts, bonPts, pts: stats.pts + bonPts, isMe };
     });
-  }, [realResults, currentUser, participantsKey, participantBonus, officialBonus]);
+  }, [realResults, currentUser, participantsKey, participantBonus, officialBonus, scoreBucket]);
 
   const sorted = React.useMemo(() => {
     const arr = [...enriched];
@@ -1248,20 +1455,39 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
       <div className="topbar">
         <div className="topbar-logo">Q26</div>
         <div>
-          <div className="topbar-title">{view === "players" ? "Clasificación" : "Grupos"}</div>
-          <div className="topbar-sub">{view === "players" ? `${PARTICIPANTS.length} participantes` : "Tabla oficial por grupo"}</div>
+          <div className="topbar-title">{view === "players" ? "Clasificación" : view === "knockouts" ? "Knockouts" : "Grupos"}</div>
+          <div className="topbar-sub">{bucketLabel(scoreBucket)} · {participantCount} participantes</div>
         </div>
       </div>
 
       <div className="section" style={{paddingBottom: 8}}>
-        <div className="pill-tabs leaderboard-view-tabs">
-          <button className={`pill-tab ${view === "players" ? "active" : ""}`} onClick={() => setView("players")}>Jugadores</button>
-          <button className={`pill-tab ${view === "groups" ? "active" : ""}`} onClick={() => setView("groups")}>Grupos</button>
-        </div>
+        <SegmentedControl
+          ariaLabel="Fase de tabla"
+          value={scoreBucket}
+          onChange={(id) => { setScoreBucket(id); setView("players"); }}
+          className="stacked-control"
+          options={[
+            { id: "groups", label: "Fase de grupos" },
+            { id: "knockout", label: "Eliminatorias" },
+          ]}
+        />
+        <SegmentedControl
+          ariaLabel="Vista de tabla"
+          value={view}
+          onChange={setView}
+          options={[
+            { id: "players", label: "Jugadores" },
+            ...(scoreBucket === "groups"
+              ? [{ id: "groups", label: "Grupos" }]
+              : [{ id: "knockouts", label: "Knockouts" }]),
+          ]}
+        />
       </div>
 
       {view === "groups" ? (
         <GroupsTab matches={window.QUINIELA_DATA.MATCHES || MATCHES} realResults={realResults} showKnockout={false}/>
+      ) : view === "knockouts" ? (
+        <KnockoutsTab matches={window.QUINIELA_DATA.MATCHES || MATCHES} realResults={realResults}/>
       ) : (
         <>
       <div className="section" style={{paddingBottom: 10}}>
@@ -1298,12 +1524,18 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
       </div>
 
       <div className="section" style={{paddingTop: 4, paddingBottom: 8}}>
-        <div className="pill-tabs" style={{display: "flex", overflowX: "auto", maxWidth: "100%"}}>
-          <button className={`pill-tab ${sortBy === "pts" ? "active" : ""}`} onClick={() => setSortBy("pts")}>Puntos</button>
-          <button className={`pill-tab ${sortBy === "exactos" ? "active" : ""}`} onClick={() => setSortBy("exactos")}>Exactos</button>
-          <button className={`pill-tab ${sortBy === "parciales" ? "active" : ""}`} onClick={() => setSortBy("parciales")}>Parciales</button>
-          <button className={`pill-tab ${sortBy === "completados" ? "active" : ""}`} onClick={() => setSortBy("completados")}>Completos</button>
-        </div>
+        <SegmentedControl
+          ariaLabel="Orden de tabla"
+          value={sortBy}
+          onChange={setSortBy}
+          compact
+          options={[
+            { id: "pts", label: "Puntos" },
+            { id: "exactos", label: "Exactos" },
+            { id: "parciales", label: "Parciales" },
+            { id: "completados", label: "Completos" },
+          ]}
+        />
       </div>
 
       <div className="section" style={{paddingTop: 8}}>
@@ -1333,15 +1565,15 @@ function LeaderboardScreen({ currentUser, realResults, participantsKey, particip
                 <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
                 <div className="cw-stat ex">{p.exactos}</div>
                 <div className="cw-stat pc">{p.parciales}</div>
-                <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
+                <div className="cw-comp">{p.completados}/{scoredTotal}</div>
               </div>
             ))}
           </div>
         </div>
 
         <div className="muted-2" style={{marginTop: 14, fontSize: 11, textAlign: "center", lineHeight: 1.6}}>
-          <strong>Exacto</strong> +3 pts · <strong>Parcial</strong> +1 pt · <strong>Bonus</strong> +5 pts c/u<br/>
-          Pts = partidos · Bon = bonus
+          <strong>Exacto</strong> +3 pts · <strong>Parcial</strong> +1 pt{scoreBucket === "knockout" ? <> · <strong>Bonus</strong> +5 pts c/u</> : null}<br/>
+          {scoreBucket === "knockout" ? "Eliminatorias empieza separada de grupos y suma bonus." : "Fase de grupos queda disponible como histórico."}
         </div>
       </div>
         </>
@@ -1506,16 +1738,18 @@ window.BonusScreen = BonusScreen;
 function AdminLeaderboardTab({ participants, matches, realResults, participantBonus, officialBonus }) {
   const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
   const [sortBy, setSortBy] = React.useState("pts");
+  const [scoreBucket, setScoreBucket] = React.useState("knockout");
+  const scoredTotal = MATCHES.filter(m => matchInBucket(m, scoreBucket)).length;
 
   const enriched = React.useMemo(() => {
     const pb = participantBonus || window.QUINIELA_DATA.PARTICIPANT_BONUS || {};
     const ob = officialBonus || window.QUINIELA_DATA.OFFICIAL_BONUS || {};
     return participants.map(p => {
-      const stats = window.aggregateStats(p.predictions, realResults);
-      const bonPts = window.calcBonusPts(pb[p.user], ob);
-      return { ...p, ...stats, bonPts };
+      const stats = window.aggregateStats(p.predictions, realResults, { bucket: scoreBucket });
+      const bonPts = scoreBucket === "knockout" ? window.calcBonusPts(pb[p.user], ob) : 0;
+      return { ...p, ...stats, matchPts: stats.pts, bonPts, pts: stats.pts + bonPts };
     });
-  }, [participants, realResults, participantBonus, officialBonus]);
+  }, [participants, realResults, participantBonus, officialBonus, scoreBucket]);
 
   const sorted = React.useMemo(() => {
     const arr = [...enriched];
@@ -1540,7 +1774,7 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
               <Icon.Trophy size={20}/>
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div className="muted-2" style={{fontSize:10.5,letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}}>Líder actual</div>
+              <div className="muted-2" style={{fontSize:10.5,letterSpacing:".08em",textTransform:"uppercase",fontWeight:700}}>Líder {bucketLabel(scoreBucket).toLowerCase()}</div>
               <div style={{fontWeight:800,fontSize:16,marginTop:2}}>{leader.name}</div>
               <div className="muted-2" style={{marginTop:2}}>{leader.pts} pts · {leader.exactos} exactos · {leader.parciales} parciales</div>
             </div>
@@ -1549,12 +1783,28 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
       )}
 
       <div className="section" style={{paddingTop: 4, paddingBottom: 8}}>
-        <div className="pill-tabs" style={{display:"flex",overflowX:"auto",maxWidth:"100%"}}>
-          <button className={`pill-tab ${sortBy==="pts"?"active":""}`} onClick={() => setSortBy("pts")}>Puntos</button>
-          <button className={`pill-tab ${sortBy==="exactos"?"active":""}`} onClick={() => setSortBy("exactos")}>Exactos</button>
-          <button className={`pill-tab ${sortBy==="parciales"?"active":""}`} onClick={() => setSortBy("parciales")}>Parciales</button>
-          <button className={`pill-tab ${sortBy==="completados"?"active":""}`} onClick={() => setSortBy("completados")}>Completos</button>
-        </div>
+        <SegmentedControl
+          ariaLabel="Fase de tabla admin"
+          value={scoreBucket}
+          onChange={setScoreBucket}
+          className="stacked-control"
+          options={[
+            { id: "groups", label: "Fase de grupos" },
+            { id: "knockout", label: "Eliminatorias" },
+          ]}
+        />
+        <SegmentedControl
+          ariaLabel="Orden de tabla admin"
+          value={sortBy}
+          onChange={setSortBy}
+          compact
+          options={[
+            { id: "pts", label: "Puntos" },
+            { id: "exactos", label: "Exactos" },
+            { id: "parciales", label: "Parciales" },
+            { id: "completados", label: "Completos" },
+          ]}
+        />
       </div>
 
       <div className="section" style={{paddingTop: 8}}>
@@ -1581,7 +1831,7 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
                 <div className="cw-bon">{p.bonPts > 0 ? `+${p.bonPts}` : "—"}</div>
                 <div className="cw-stat ex">{p.exactos}</div>
                 <div className="cw-stat pc">{p.parciales}</div>
-                <div className="cw-comp">{p.completados}/{(window.QUINIELA_DATA.MATCHES||MATCHES).length}</div>
+                <div className="cw-comp">{p.completados}/{scoredTotal}</div>
               </div>
             ))}
           </div>
@@ -1594,43 +1844,6 @@ function AdminLeaderboardTab({ participants, matches, realResults, participantBo
   );
 }
 
-// Admin Full Preview: vista como participante
-function PreviewUserView({ matches, participants, realResults, phaseOpen, participantBonus, officialBonus }) {
-  const [tab, setTab] = React.useState("predictions");
-  const fakeUser = participants[0] || { name: "Participante", user: "usuario", initials: "P1" };
-  const fakePredictions = fakeUser.predictions || {};
-
-  return (
-    <>
-      <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-        <div className="pill-tabs" style={{display:"flex", overflowX:"auto"}}>
-          <button className={`pill-tab ${tab==="predictions"?"active":""}`} onClick={() => setTab("predictions")}>Pronósticos</button>
-          <button className={`pill-tab ${tab==="leaderboard"?"active":""}`} onClick={() => setTab("leaderboard")}>Tabla</button>
-          <button className={`pill-tab ${tab==="bonus"?"active":""}`} onClick={() => setTab("bonus")}>Bonus</button>
-        </div>
-      </div>
-      <div className="muted-2" style={{textAlign:"center", fontSize:11, padding:"0 16px 8px"}}>
-        Vista como: <strong>{fakeUser.name}</strong>
-      </div>
-      {tab === "predictions" && (
-        <PredictionsScreen
-          predictions={fakePredictions}
-          setPredictions={() => {}}
-          realResults={realResults}
-          phaseOpen={phaseOpen}
-        />
-      )}
-      {tab === "leaderboard" && (
-        <LeaderboardScreen currentUser={fakeUser} realResults={realResults}/>
-      )}
-      {tab === "bonus" && (
-        <BonusScreen bonus={participantBonus[fakeUser.user] || {}} setBonus={() => {}} phaseOpen={phaseOpen}/>
-      )}
-    </>
-  );
-}
-
-
 // Admin panel: resumen, usuarios (con credenciales+pago), resultados, fases, matriz, bonus
 
 function AdminScreen({
@@ -1641,7 +1854,6 @@ function AdminScreen({
   phaseOpen, setPhaseOpen,
 }) {
   const [tab, setTab] = React.useState("summary");
-  const [mode, setMode] = React.useState("live");
   const [toast, setToast] = React.useState("");
 
   function flash(msg) {
@@ -1649,43 +1861,8 @@ function AdminScreen({
     setTimeout(() => setToast(""), 2200);
   }
 
-  const liveMatches = window.QUINIELA_DATA.MATCHES;
-  const previewMatches = React.useMemo(() => {
-    const ids = new Set(liveMatches.map(m => m.id));
-    const ko = (window.QUINIELA_DATA.MATCHES_KO || []).filter(m => !ids.has(m.id));
-    return [...liveMatches, ...ko];
-  }, [liveMatches]);
-  const previewResults = React.useMemo(() => makePreviewRealResults(previewMatches), [previewMatches]);
-  const previewParticipants = React.useMemo(() => makePreviewParticipants(previewMatches), [previewMatches]);
-  const previewUsers = React.useMemo(() => previewParticipants.map((p, i) => ({
-    id: i + 1,
-    user: p.user,
-    name: p.name,
-    email: p.email || `${p.user}@preview.local`,
-    pass: "preview",
-    initials: p.initials,
-    paid: i % 5 !== 0,
-  })), [previewParticipants]);
-  const previewOfficialBonus = React.useMemo(() => ({
-    campeon: "Argentina",
-    subcampeon: "Francia",
-    goleador: "Kylian Mbappé (FRA)",
-    mvp: "Lionel Messi (ARG)",
-    portero: "Emiliano Martínez (ARG)",
-  }), []);
-  const previewParticipantBonus = React.useMemo(() => makePreviewParticipantBonus(previewParticipants), [previewParticipants]);
-  const previewPhaseOpen = React.useMemo(() => Object.fromEntries(window.QUINIELA_DATA.PHASES.map(p => [p.id, true])), []);
-
-  const isPreview = mode === "preview";
-  const viewMatches = isPreview ? previewMatches : liveMatches;
-  const viewParticipants = isPreview ? previewParticipants : window.QUINIELA_DATA.PARTICIPANTS;
-  const viewResults = isPreview ? previewResults : realResults;
-  const viewUsers = isPreview ? previewUsers : users;
-  const viewOfficialBonus = isPreview ? previewOfficialBonus : officialBonus;
-  const viewParticipantBonus = isPreview ? previewParticipantBonus : participantBonus;
-  const viewPhaseOpen = isPreview ? previewPhaseOpen : phaseOpen;
-
-  const [previewAs, setPreviewAs] = React.useState("admin"); // "admin" | "user"
+  const viewMatches = window.QUINIELA_DATA.MATCHES;
+  const viewParticipants = window.QUINIELA_DATA.PARTICIPANTS;
 
   const tabs = [
     { id: "summary",     label: "Resumen" },
@@ -1711,71 +1888,22 @@ function AdminScreen({
         </div>
       </div>
 
-      <div className="section" style={{paddingBottom: 8}}>
-        <div className="admin-mode-row">
-          <div className="pill-tabs">
-            <button className={`pill-tab ${mode === "live" ? "active" : ""}`} onClick={() => setMode("live")}>Live</button>
-            <button className={`pill-tab ${mode === "preview" ? "active" : ""}`} onClick={() => setMode("preview")}>Full Preview</button>
-          </div>
-          <div className="muted-2" style={{fontSize: 11.5}}>
-            {isPreview ? "Visualización completa con datos de prueba. No edita datos reales." : "Datos reales de producción."}
-          </div>
-        </div>
-      </div>
-
-      <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-        <div className="pill-tabs" style={{display: "flex", overflowX: "auto", maxWidth: "100%"}}>
-          {tabs.map(t => (
-            <button key={t.id}
-              className={`pill-tab ${tab === t.id ? "active" : ""}`}
-              onClick={() => setTab(t.id)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {isPreview && (
-        <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-          <div className="notice closed" style={{flexDirection: "column", gap: 10, alignItems: "flex-start"}}>
-            <div style={{display:"flex", alignItems:"center", gap: 8}}>
-              <Icon.Eye size={16}/>
-              <strong>Full Preview</strong>
-              <span className="muted-2" style={{fontSize: 11}}>— datos de prueba, sin afectar Live</span>
-            </div>
-            <div className="pill-tabs" style={{padding: 2}}>
-              <button className={`pill-tab ${previewAs === "admin" ? "active" : ""}`} style={{fontSize: 11, padding: "4px 10px"}} onClick={() => setPreviewAs("admin")}>
-                Vista admin
-              </button>
-              <button className={`pill-tab ${previewAs === "user" ? "active" : ""}`} style={{fontSize: 11, padding: "4px 10px"}} onClick={() => setPreviewAs("user")}>
-                Vista participante
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isPreview && previewAs === "user" ? (
-        <PreviewUserView
-          matches={viewMatches}
-          participants={viewParticipants}
-          realResults={viewResults}
-          phaseOpen={viewPhaseOpen}
-          participantBonus={viewParticipantBonus}
-          officialBonus={viewOfficialBonus}
+      <div className="section admin-nav-section">
+        <AdminNav
+          tabs={tabs}
+          value={tab}
+          onChange={setTab}
         />
-      ) : (
-        <>
-          {tab === "summary"     && <SummaryTab users={viewUsers} realResults={viewResults} phaseOpen={viewPhaseOpen} matches={viewMatches} participants={viewParticipants}/>}
-          {tab === "users"       && <UsersTab users={viewUsers} setUsers={setUsers} flash={flash} readOnly={isPreview}/>}
-          {tab === "leaderboard" && <AdminLeaderboardTab participants={viewParticipants} matches={viewMatches} realResults={viewResults} participantBonus={viewParticipantBonus} officialBonus={viewOfficialBonus}/>}
-          {tab === "phases"      && <PhasesTab phaseOpen={viewPhaseOpen} setPhaseOpen={setPhaseOpen} flash={flash} readOnly={isPreview} matches={viewMatches}/>}
-          {tab === "results"     && <ResultsTab realResults={viewResults} setRealResults={setRealResults} readOnly={isPreview} matches={viewMatches}/>}
-          {tab === "matrix"      && <MatrixTab realResults={viewResults} participants={viewParticipants} matches={viewMatches}/>}
-          {tab === "bonus"       && <OfficialBonusTab officialBonus={viewOfficialBonus} setOfficialBonus={setOfficialBonus} flash={flash} readOnly={isPreview}/>}
-          {tab === "pbonus"      && <ParticipantBonusTab participantBonus={viewParticipantBonus} officialBonus={viewOfficialBonus} participants={viewParticipants}/>}
-        </>
-      )}
+      </div>
+
+      {tab === "summary"     && <SummaryTab users={users} realResults={realResults} phaseOpen={phaseOpen} matches={viewMatches} participants={viewParticipants}/>}
+      {tab === "users"       && <UsersTab users={users} setUsers={setUsers} flash={flash}/>}
+      {tab === "leaderboard" && <AdminLeaderboardTab participants={viewParticipants} matches={viewMatches} realResults={realResults} participantBonus={participantBonus} officialBonus={officialBonus}/>}
+      {tab === "phases"      && <PhasesTab phaseOpen={phaseOpen} setPhaseOpen={setPhaseOpen} flash={flash} matches={viewMatches}/>}
+      {tab === "results"     && <ResultsTab realResults={realResults} setRealResults={setRealResults} matches={viewMatches}/>}
+      {tab === "matrix"      && <MatrixTab realResults={realResults} participants={viewParticipants} matches={viewMatches}/>}
+      {tab === "bonus"       && <OfficialBonusTab officialBonus={officialBonus} setOfficialBonus={setOfficialBonus} flash={flash}/>}
+      {tab === "pbonus"      && <ParticipantBonusTab participantBonus={participantBonus} officialBonus={officialBonus} participants={viewParticipants}/>}
 
       {toast && <div className="copied-flash">{toast}</div>}
     </>
@@ -1804,10 +1932,13 @@ function SummaryTab({ users, realResults, phaseOpen, matches, participants }) {
     const upcoming = MATCHES
       .filter(m => m.kickoffMs > window.getNow() && m.home != null)
       .sort((a,b) => a.kickoffMs - b.kickoffMs)[0];
+    const upcomingPhase = upcoming
+      ? (matchPhase(upcoming) === "groups" ? `Grupo ${upcoming.group}` : (PHASES.find(p => p.id === matchPhase(upcoming))?.label || "Eliminatorias"))
+      : "";
     const fasesAbiertas = PHASES.filter(p => phaseOpen[p.id]).length;
     return {
       participantes, pagados, partidosJugados, partidosPendientes,
-      pronosticosRegistrados, pointsAvg, leader, upcoming, fasesAbiertas,
+      pronosticosRegistrados, pointsAvg, leader, upcoming, upcomingPhase, fasesAbiertas,
     };
   }, [users, realResults, phaseOpen]);
 
@@ -1901,7 +2032,7 @@ function SummaryTab({ users, realResults, phaseOpen, matches, participants }) {
               <Icon.Clock size={22}/>
             </div>
             <div style={{flex: 1, minWidth: 0}}>
-              <div className="dash-h-label">{window.formatRelative(stats.upcoming.kickoffISO)} · Grupo {stats.upcoming.group}</div>
+              <div className="dash-h-label">{window.formatRelative(stats.upcoming.kickoffISO)} · {stats.upcomingPhase}</div>
               <div className="dash-h-title" style={{display: "flex", alignItems: "center", gap: 10}}>
                 <FlagImg team={stats.upcoming.home}/>
                 {stats.upcoming.home}
@@ -2090,11 +2221,18 @@ function UsersTab({ users, setUsers, flash, readOnly = false }) {
           <div className="section-title" style={{margin: 0}}>
             Participantes · {users.length} <span style={{color: "var(--primary-dark)"}}>· {paidCount} pagados</span>
           </div>
-          <div className="pill-tabs" style={{padding: 3}}>
-            <button className={`pill-tab ${filter==="all"?"active":""}`} onClick={() => setFilter("all")} style={{padding:"5px 9px",fontSize:11}}>Todos</button>
-            <button className={`pill-tab ${filter==="paid"?"active":""}`} onClick={() => setFilter("paid")} style={{padding:"5px 9px",fontSize:11}}>Pagados</button>
-            <button className={`pill-tab ${filter==="unpaid"?"active":""}`} onClick={() => setFilter("unpaid")} style={{padding:"5px 9px",fontSize:11}}>Pendientes</button>
-          </div>
+          <SegmentedControl
+            ariaLabel="Filtro de participantes"
+            value={filter}
+            onChange={setFilter}
+            compact
+            className="admin-inline-control"
+            options={[
+              { id: "all", label: "Todos" },
+              { id: "paid", label: "Pagados" },
+              { id: "unpaid", label: "Pendientes" },
+            ]}
+          />
         </div>
 
         <div className="card">
@@ -2204,6 +2342,142 @@ function GroupsTab({ matches, realResults, showKnockout = true }) {
         </div>
       </div>}
     </>
+  );
+}
+
+function KnockoutsTab({ matches, realResults }) {
+  const bracket = buildRealBracket(matches, realResults);
+
+  return (
+    <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
+      <div className="knockout-board card">
+        <div className="knockout-board-head">
+          <div>
+            <div className="knockout-kicker">2026 FIFA World Cup</div>
+            <div className="knockout-title">Knockouts</div>
+          </div>
+          <div className="knockout-round-chip">Round of 32</div>
+        </div>
+        <div className="knockout-scroll" aria-label="Llave de eliminatorias">
+          <div className="knockout-canvas">
+            <BracketHalf side="left" slots={bracket.left}/>
+            <div className="knockout-final">
+              <div className="knockout-final-match">
+                <FlagSlot team={bracket.final.home} size={42}/>
+                <div className="knockout-cup"><Icon.Trophy size={34}/><span>Final</span></div>
+                <FlagSlot team={bracket.final.away} size={42}/>
+              </div>
+              <div className="knockout-champion">
+                <FlagSlot team={bracket.champion} size={52}/>
+                <span>Campeón</span>
+              </div>
+            </div>
+            <BracketHalf side="right" slots={bracket.right}/>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function buildRealBracket(matches, realResults) {
+  const byPhase = (phase) => sortMatchesByKickoff(matches.filter(m => matchPhase(m) === phase));
+  const r32 = byPhase("r32");
+  const r16 = byPhase("r16");
+  const qf = byPhase("qf");
+  const sf = byPhase("sf");
+  const final = byPhase("final")[0];
+
+  const teamFromMatch = (match, side) => {
+    if (!match) return null;
+    const name = side === "home" ? (match.home || match.homePlaceholder) : (match.away || match.awayPlaceholder);
+    const flagSource = side === "home" ? match.home : match.away;
+    return { name, flagSource };
+  };
+  const resultWinner = (match) => winnerTeam(match, realResults[match?.id]);
+  const r32Winner = r32.map(resultWinner);
+  const r16Pairs = [[0,3],[2,5],[1,4],[6,7],[11,10],[9,8],[14,13],[12,15]];
+  const r16Teams = r16Pairs.map(([home, away], index) => ({
+    home: r32Winner[home] || teamFromMatch(r16[index], "home"),
+    away: r32Winner[away] || teamFromMatch(r16[index], "away"),
+  }));
+  const r16Winner = r16Teams.map((slot, index) => resultWinner({ ...r16[index], home: slot.home?.name, away: slot.away?.name }) || winnerTeamFromSlot(slot, realResults[r16[index]?.id]));
+  const qfTeams = [[0,1],[2,3],[4,5],[6,7]].map(([home, away], index) => ({
+    home: r16Winner[home] || teamFromMatch(qf[index], "home"),
+    away: r16Winner[away] || teamFromMatch(qf[index], "away"),
+  }));
+  const qfWinner = qfTeams.map((slot, index) => winnerTeamFromSlot(slot, realResults[qf[index]?.id]));
+  const sfTeams = [[0,1],[2,3]].map(([home, away], index) => ({
+    home: qfWinner[home] || teamFromMatch(sf[index], "home"),
+    away: qfWinner[away] || teamFromMatch(sf[index], "away"),
+  }));
+  const sfWinner = sfTeams.map((slot, index) => winnerTeamFromSlot(slot, realResults[sf[index]?.id]));
+  const finalSlot = {
+    home: sfWinner[0] || teamFromMatch(final, "home"),
+    away: sfWinner[1] || teamFromMatch(final, "away"),
+  };
+
+  return {
+    left: {
+      r32: r32.slice(0, 8).flatMap(match => [teamFromMatch(match, "home"), teamFromMatch(match, "away")]),
+      r16: r16Teams.slice(0, 4).flatMap(slot => [slot.home, slot.away]),
+      qf: qfTeams.slice(0, 2).flatMap(slot => [slot.home, slot.away]),
+      sf: [sfTeams[0]?.home, sfTeams[0]?.away],
+    },
+    right: {
+      r32: r32.slice(8).flatMap(match => [teamFromMatch(match, "home"), teamFromMatch(match, "away")]),
+      r16: r16Teams.slice(4).flatMap(slot => [slot.home, slot.away]),
+      qf: qfTeams.slice(2).flatMap(slot => [slot.home, slot.away]),
+      sf: [sfTeams[1]?.home, sfTeams[1]?.away],
+    },
+    final: finalSlot,
+    champion: winnerTeamFromSlot(finalSlot, realResults[final?.id]),
+  };
+}
+
+function winnerTeamFromSlot(slot, result) {
+  if (!slot || !result || result.home === "" || result.away === "") return null;
+  const homeScore = Number(result.home);
+  const awayScore = Number(result.away);
+  if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore === awayScore) return null;
+  return homeScore > awayScore ? slot.home : slot.away;
+}
+
+function BracketHalf({ side, slots }) {
+  const rounds = [
+    { key: "r32", label: "32" },
+    { key: "r16", label: "16" },
+    { key: "qf", label: "4tos" },
+    { key: "sf", label: "Semi" },
+  ];
+  return (
+    <div className={`bracket-half ${side}`}>
+      {rounds.map(round => (
+        <div className={`bracket-round bracket-round-${round.key}`} key={round.key}>
+          <div className="bracket-round-label">{round.label}</div>
+          {(slots[round.key] || []).map((team, index) => (
+            <div className={`bracket-node bracket-node-${round.key}`} key={`${round.key}-${index}`}>
+              <FlagSlot team={team} size={round.key === "r32" ? 34 : 38}/>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="bracket-lines" aria-hidden="true">
+        <span className="line r16 a"/><span className="line r16 b"/><span className="line r16 c"/><span className="line r16 d"/>
+        <span className="line qf a"/><span className="line qf b"/>
+        <span className="line sf a"/>
+      </div>
+    </div>
+  );
+}
+
+function FlagSlot({ team, size = 34 }) {
+  const label = team?.name || "";
+  const flagTeam = team?.flagSource || team?.name;
+  return (
+    <div className={`flag-slot ${!flagTeam ? "empty" : ""}`} title={label} aria-label={label || "Pendiente"}>
+      {flagTeam ? <FlagImg team={flagTeam} size={size}/> : <span/>}
+    </div>
   );
 }
 
@@ -2353,14 +2627,14 @@ function PhasesTab({ phaseOpen, setPhaseOpen, flash, readOnly = false, matches }
 function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) {
   const { GROUPS, PHASES, matchPhase } = window.QUINIELA_DATA;
   const MATCHES = matches || window.QUINIELA_DATA.MATCHES;
-  const [phaseFilter, setPhaseFilter] = React.useState("groups");
+  const [bucketFilter, setBucketFilter] = React.useState("knockout");
   const [resGroup, setResGroup] = React.useState("ALL");
   const [saving, setSaving] = React.useState(false);
 
-  const inPhase = MATCHES.filter(m => matchPhase(m) === phaseFilter);
-  const resMatches = sortMatchesByKickoff(phaseFilter === "groups" && resGroup !== "ALL"
-    ? inPhase.filter(m => m.group === resGroup)
-    : inPhase);
+  const inBucket = MATCHES.filter(m => matchInBucket(m, bucketFilter));
+  const resMatches = sortMatchesByKickoff(bucketFilter === "groups" && resGroup !== "ALL"
+    ? inBucket.filter(m => m.group === resGroup)
+    : inBucket);
   const resultDays = groupMatchesByDay(resMatches);
   const resDone = MATCHES.filter(m => {
     const r = realResults[m.id];
@@ -2411,19 +2685,28 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
       </div>
 
       <div className="section" style={{paddingTop: 4, paddingBottom: 8}}>
-        <label className="label" style={{marginBottom: 6, display: "block"}}>Fase</label>
-        <select className="select" value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}>
-          {PHASES.map(p => <option key={p.id} value={p.id}>{p.label} · {p.count} partidos</option>)}
-        </select>
+        <SegmentedControl
+          ariaLabel="Bloque de resultados"
+          value={bucketFilter}
+          onChange={setBucketFilter}
+          options={[
+            { id: "groups", label: "Fase de grupos", meta: "Histórico" },
+            { id: "knockout", label: "Eliminatorias", meta: `${MATCHES.filter(m => matchInBucket(m, "knockout")).length} partidos` },
+          ]}
+        />
       </div>
 
-      {phaseFilter === "groups" && (
+      {bucketFilter === "groups" && (
         <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-          <label className="label" style={{marginBottom: 6, display: "block"}}>Grupo</label>
-          <select className="select" value={resGroup} onChange={e => setResGroup(e.target.value)}>
-            <option value="ALL">Todos los grupos</option>
-            {Object.keys(GROUPS).map(g => <option key={g} value={g}>Grupo {g}</option>)}
-          </select>
+          <SelectControl
+            label="Grupo"
+            value={resGroup}
+            onChange={setResGroup}
+            options={[
+              { value: "ALL", label: "Todos los grupos" },
+              ...Object.keys(GROUPS).map(g => ({ value: g, label: `Grupo ${g}` })),
+            ]}
+          />
         </div>
       )}
 
@@ -2443,7 +2726,7 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
               <div>
                 <div className="group-title">{day.label}</div>
                 <div className="muted-2" style={{fontSize: 11, marginTop: 1}}>
-                  {day.matches.map(m => (m.phase || "groups") === "groups" ? `G${m.group}` : (PHASES.find(p => p.id === matchPhase(m))?.label || matchPhase(m))).filter((label, i, arr) => arr.indexOf(label) === i).join(" · ")}
+                  {day.matches.map(m => (m.phase || "groups") === "groups" ? `G${m.group}` : (PHASES.find(p => p.id === matchPhase(m))?.label || "Eliminatorias")).filter((label, i, arr) => arr.indexOf(label) === i).join(" · ")}
                 </div>
               </div>
             </div>
@@ -2493,18 +2776,16 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
 }
 
 // ---------- Matriz por jugador ----------
-function MatrixTab({ realResults, participants, matches: viewMatches }) {
+function MatrixTab({ realResults, participants, matches: viewMatches, canSeeKnockout = true }) {
   const { PHASES, matchPhase } = window.QUINIELA_DATA;
   const MATCHES = viewMatches || window.QUINIELA_DATA.MATCHES;
   const PARTICIPANTS = participants || window.QUINIELA_DATA.PARTICIPANTS;
-  const [phaseFilter, setPhaseFilter] = React.useState("groups");
-  const [groupFilter, setGroupFilter] = React.useState("ALL");
+  const [bucketFilter, setBucketFilter] = React.useState("knockout");
   const matrixScrollRef = React.useRef(null);
   const matrixTodayRef = React.useRef(null);
 
   const matches = sortMatchesByKickoff(MATCHES.filter(m => {
-    if (matchPhase(m) !== phaseFilter) return false;
-    if (phaseFilter === "groups" && groupFilter !== "ALL" && m.group !== groupFilter) return false;
+    if (!matchInBucket(m, bucketFilter)) return false;
     return true;
   }));
   const todayKey = dayKeyFromDate(new Date(window.getNow()));
@@ -2516,9 +2797,9 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
   const rows = React.useMemo(() => {
     return PARTICIPANTS.map(p => ({
       ...p,
-      stats: window.aggregateStats(p.predictions, realResults),
+      stats: window.aggregateStats(p.predictions, realResults, { bucket: bucketFilter }),
     })).sort((a, b) => b.stats.pts - a.stats.pts);
-  }, [realResults]);
+  }, [realResults, bucketFilter]);
 
   React.useEffect(() => {
     const scroller = matrixScrollRef.current;
@@ -2531,7 +2812,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
       const delta = targetLeft - stickyRight;
       scroller.scrollTo({ left: Math.max(0, scroller.scrollLeft + delta), behavior: "smooth" });
     });
-  }, [phaseFilter, groupFilter, matrixFocusMatch?.id]);
+  }, [bucketFilter, matrixFocusMatch?.id]);
 
   return (
     <>
@@ -2539,7 +2820,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
         <div className="topbar-logo">Q26</div>
         <div>
           <div className="topbar-title">Jugadores</div>
-          <div className="topbar-sub">{PARTICIPANTS.length} participantes</div>
+          <div className="topbar-sub">{bucketLabel(bucketFilter)} · {PARTICIPANTS.length} participantes</div>
         </div>
       </div>
       <div className="section" style={{paddingTop: 8, paddingBottom: 8}}>
@@ -2552,27 +2833,20 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
       </div>
 
       <div className="section" style={{paddingTop: 0, paddingBottom: 8}}>
-        <div style={{display: "grid", gridTemplateColumns: phaseFilter === "groups" ? "1fr 1fr" : "1fr", gap: 8}}>
-          <div>
-            <label className="label" style={{marginBottom: 6, display: "block"}}>Fase</label>
-            <select className="select" value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}>
-              {PHASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-            </select>
-          </div>
-          {phaseFilter === "groups" && (
-            <div>
-              <label className="label" style={{marginBottom: 6, display: "block"}}>Grupo</label>
-              <select className="select" value={groupFilter} onChange={e => setGroupFilter(e.target.value)}>
-                <option value="ALL">Todos · 72</option>
-                {Object.keys(window.QUINIELA_DATA.GROUPS).map(g =>
-                  <option key={g} value={g}>Grupo {g}</option>
-                )}
-              </select>
-            </div>
-          )}
-        </div>
+        <SegmentedControl
+          ariaLabel="Bloque de matriz"
+          value={bucketFilter}
+          onChange={setBucketFilter}
+          options={[
+            { id: "groups", label: "Fase de grupos" },
+            { id: "knockout", label: "Eliminatorias" },
+          ]}
+        />
       </div>
 
+      {bucketFilter === "knockout" && !canSeeKnockout ? (
+        <LockedView message="Completa tus pronósticos de Eliminatorias para ver las predicciones de los demás en esta fase. Grupos queda disponible como histórico."/>
+      ) : (
       <div className="section" style={{paddingTop: 8}}>
         <div className="matrix-wrap">
           <div className="matrix-scroll" ref={matrixScrollRef}>
@@ -2591,7 +2865,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
                         title={`${m.home || m.homePlaceholder} vs ${m.away || m.awayPlaceholder} — ${m.date} ${m.time}`}
                       >
                         <div className="match-pair">
-                          <span className="match-grp">{m.group ? `G${m.group}` : m.phase.toUpperCase()}</span>
+                          <span className="match-grp">{matchPhase(m) === "groups" ? `G${m.group}` : compactPhaseLabel(matchPhase(m))}</span>
                           {m.home
                             ? <span style={{display: "flex", gap: 3, alignItems: "center"}}>
                                 <FlagImg team={m.home} size={16}/>
@@ -2643,6 +2917,7 @@ function MatrixTab({ realResults, participants, matches: viewMatches }) {
           </div>
         </div>
       </div>
+      )}
     </>
   );
 }
@@ -2867,6 +3142,32 @@ function DesignedOriginalApp() {
     window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u }))
   );
 
+  React.useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const refreshPhases = () => {
+      api("/api/phases").then(({ phases = [] }) => {
+        if (cancelled || !phases.length) return;
+        const next = Object.fromEntries(phases.map(p => [p.id, p.is_open]));
+        window.QUINIELA_DATA.PHASE_OPEN = next;
+        setPhaseOpen(prev => ({ ...prev, ...next }));
+      }).catch(() => {});
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshPhases();
+    };
+    refreshPhases();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", refreshPhases);
+    const interval = window.setInterval(refreshPhases, 30000);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", refreshPhases);
+      window.clearInterval(interval);
+    };
+  }, [user]);
+
   // Restore session on page refresh
   React.useEffect(() => {
     api("/api/auth/me").then(({ user: profile }) => {
@@ -2899,21 +3200,29 @@ function DesignedOriginalApp() {
     const calls = [
       api("/api/predictions/all"),
       api("/api/bonus/all"),
+      api("/api/matches"),
+      api("/api/phases"),
     ];
     if (user.role === "admin") {
-      calls.push(api("/api/admin/users")); // index 2
+      calls.push(api("/api/admin/users")); // index 4
     } else {
-      calls.push(api("/api/users/public")); // index 2
-      calls.push(api("/api/predictions"));  // index 3
-      calls.push(api("/api/bonus"));        // index 4
+      calls.push(api("/api/users/public")); // index 4
+      calls.push(api("/api/predictions"));  // index 5
+      calls.push(api("/api/bonus"));        // index 6
     }
     Promise.allSettled(calls).then((results) => {
       const allPreds   = results[0].status === "fulfilled" ? results[0].value.predictions : [];
       const allBonuses = results[1].status === "fulfilled" ? results[1].value.bonuses : [];
+      const matches    = results[2].status === "fulfilled" ? results[2].value.matches : [];
+      const phases     = results[3].status === "fulfilled" ? results[3].value.phases : [];
+      applyBackendData({ matches, phases, allPreds, allBonuses });
+      if (phases.length) {
+        setPhaseOpen(prev => ({ ...prev, ...Object.fromEntries(phases.map(p => [p.id, p.is_open])) }));
+      }
 
       const idToAlias = {};
       if (user.role === "admin") {
-        const adminUsers = results[2]?.status === "fulfilled" ? results[2].value.users : [];
+        const adminUsers = results[4]?.status === "fulfilled" ? results[4].value.users : [];
         const nonAdmins = adminUsers.filter(u => u.role !== "admin");
         window.QUINIELA_DATA.MOCK_USERS = nonAdmins.map((u, i) => ({
           id: i + 1, uuid: u.id, user: u.alias, name: u.nombre,
@@ -2923,7 +3232,7 @@ function DesignedOriginalApp() {
         setUsers(window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u })));
         window.QUINIELA_DATA.MOCK_USERS.forEach(u => { idToAlias[u.uuid] = u.user; });
       } else {
-        const publicUsers = results[2]?.status === "fulfilled" ? results[2].value.users : [];
+        const publicUsers = results[4]?.status === "fulfilled" ? results[4].value.users : [];
         publicUsers.forEach(u => { idToAlias[u.id] = u.alias; });
         window.QUINIELA_DATA.PARTICIPANTS = publicUsers.map(u => ({
           name: u.nombre, user: u.alias,
@@ -2957,13 +3266,16 @@ function DesignedOriginalApp() {
       setParticipantsLoaded(t => !t);
 
       if (user.role !== "admin") {
-        const predsRes  = results[3];
-        const bonusRes  = results[4];
+        const predsRes  = results[5];
+        const bonusRes  = results[6];
+        const ownPredictionsFromAll = predsByAlias[user.user] || {};
         if (predsRes?.status === "fulfilled") {
           const rows = predsRes.value.predictions || [];
           const map = {};
           rows.forEach(r => { map[r.match_id] = { home: String(r.home_score), away: String(r.away_score) }; });
-          setPredictions(map);
+          setPredictions({ ...ownPredictionsFromAll, ...map });
+        } else if (Object.keys(ownPredictionsFromAll).length) {
+          setPredictions(prev => ({ ...prev, ...ownPredictionsFromAll }));
         }
         if (bonusRes?.status === "fulfilled" && bonusRes.value.bonus) {
           const b = bonusRes.value.bonus;
@@ -2982,16 +3294,18 @@ function DesignedOriginalApp() {
     }).length;
   }, [predictions]);
 
-  // Unlock logic: user can see others' predictions once they fill all open-phase matches
-  const canSeeMatrix = React.useMemo(() => {
-    const { MATCHES, PHASES, matchPhase } = window.QUINIELA_DATA;
-    return PHASES.every(ph => {
-      if (!phaseOpen[ph.id]) return true; // closed phase: no requirement
-      const phMatches = MATCHES.filter(m => matchPhase(m) === ph.id && window.matchStatus(m) === "upcoming");
-      return phMatches.every(m => {
-        const p = predictions[m.id];
-        return p && p.home !== "" && p.away !== "";
-      });
+  // Unlock logic: Grupos is historical and always visible; Eliminatorias unlocks when its open matches are filled.
+  const canSeeKnockoutMatrix = React.useMemo(() => {
+    const { MATCHES } = window.QUINIELA_DATA;
+    const knockoutOpen = PHASES.some(ph => ph.id !== "bonus" && ph.id !== "groups" && phaseOpen[ph.id]);
+    if (!knockoutOpen) return true;
+    const openKnockoutMatches = MATCHES.filter(m =>
+      matchBucket(m) === "knockout" &&
+      window.matchStatus(m) === "upcoming"
+    );
+    return openKnockoutMatches.every(m => {
+      const p = predictions[m.id];
+      return p && p.home !== "" && p.away !== "";
     });
   }, [predictions, phaseOpen]);
 
@@ -3047,9 +3361,13 @@ function DesignedOriginalApp() {
             )}
             {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults} participantsKey={participantsLoaded} participantBonus={participantBonus} officialBonus={officialBonus}/>}
             {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus} phaseOpen={phaseOpen}/>}
-            {tab === "matrix" && (canSeeMatrix
-              ? <MatrixTab realResults={realResults} participants={window.QUINIELA_DATA.PARTICIPANTS} matches={window.QUINIELA_DATA.MATCHES}/>
-              : <LockedView message="Completa tus pronósticos de todas las fases abiertas para ver las predicciones de los demás."/>
+            {tab === "matrix" && (
+              <MatrixTab
+                realResults={realResults}
+                participants={window.QUINIELA_DATA.PARTICIPANTS}
+                matches={window.QUINIELA_DATA.MATCHES}
+                canSeeKnockout={canSeeKnockoutMatrix}
+              />
             )}
             {tab === "pbonus" && (canSeeBonus
               ? <ParticipantBonusTab participantBonus={participantBonus} officialBonus={officialBonus} participants={window.QUINIELA_DATA.PARTICIPANTS}/>
@@ -3092,10 +3410,7 @@ function DesignedOriginalApp() {
             Bonus
           </button>
           <button className={tab === "matrix" ? "active" : ""} onClick={() => setTab("matrix")}>
-            <span className="nav-icon" style={{position:"relative"}}>
-              <Icon.Matrix size={20}/>
-              {!canSeeMatrix && <span style={{position:"absolute",bottom:-2,right:-4,lineHeight:1}}><Icon.Lock size={10}/></span>}
-            </span>
+            <span className="nav-icon"><Icon.Matrix size={20}/></span>
             Jugadores
           </button>
           <button className={tab === "pbonus" ? "active" : ""} onClick={() => setTab("pbonus")}>
@@ -3210,55 +3525,6 @@ function buildSeedReal() {
   return window.QUINIELA_DATA.MATCH_RESULTS || {};
 }
 
-function makePreviewPredictions(matches, seedOffset = 0) {
-  const predictions = {};
-  matches.forEach((m, i) => {
-    if (i % 7 === 0) return;
-    predictions[m.id] = {
-      home: String((i + seedOffset) % 4),
-      away: String((i * 2 + seedOffset) % 3),
-    };
-  });
-  return predictions;
-}
-
-function makePreviewRealResults(matches) {
-  const results = {};
-  matches.forEach((m, i) => {
-    results[m.id] = {
-      home: String((i + 1) % 4),
-      away: String((i * 2 + 1) % 3),
-    };
-  });
-  return results;
-}
-
-function makePreviewParticipants(matches) {
-  const base = window.QUINIELA_DATA.PREVIEW_PARTICIPANTS_RAW || window.QUINIELA_DATA.PARTICIPANTS || [];
-  return base.map((p, i) => ({
-    ...p,
-    predictions: makePreviewPredictions(matches, i + 1),
-  }));
-}
-
-function makePreviewParticipantBonus(participants) {
-  const { ALL_TEAMS, TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS } = window.QUINIELA_DATA;
-  const picks = {};
-  participants.forEach((p, i) => {
-    picks[p.user] = {
-      campeon: ALL_TEAMS[(i + 1) % ALL_TEAMS.length],
-      subcampeon: ALL_TEAMS[(i + 4) % ALL_TEAMS.length],
-      goleador: TOP_SCORERS[i % TOP_SCORERS.length],
-      mvp: MVP_CANDIDATES[(i + 2) % MVP_CANDIDATES.length],
-      portero: GOALKEEPERS[(i + 3) % GOALKEEPERS.length],
-    };
-  });
-  return picks;
-}
-
-
-
-
 function toInitials(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "--";
@@ -3271,19 +3537,21 @@ const KO_ROUND = { r32: 4, r16: 5, qf: 6, sf: 7, third: 8, final: 9 };
 
 function mapMatchFromApi(match) {
   const date = new Date(match.date);
-  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  const formatted = formatMatchDateTime(date);
   const isKO = KO_PHASES.has(match.group);
   const mapped = {
     id: match.id,
     phase: isKO ? match.group : "groups",
     group: match.group,
     round: isKO ? (KO_ROUND[match.group] ?? 4) : 1,
-    home: match.home || null,
-    away: match.away || null,
+    home: isKO && !match.home_flag ? null : (match.home || null),
+    away: isKO && !match.away_flag ? null : (match.away || null),
+    homePlaceholder: isKO && !match.home_flag ? match.home : undefined,
+    awayPlaceholder: isKO && !match.away_flag ? match.away : undefined,
     kickoffMs: date.getTime(),
     kickoffISO: match.date,
-    date: `${date.getDate()} ${months[date.getMonth()]}`,
-    time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+    date: formatted.date,
+    time: formatted.time,
   };
   if (match.home_flag) window.QUINIELA_DATA.FLAG_CODES[match.home] = match.home_flag;
   if (match.away_flag) window.QUINIELA_DATA.FLAG_CODES[match.away] = match.away_flag;
@@ -3373,7 +3641,6 @@ function applyBackendData({ matches = [], leaderboard = [], users = [], phases =
         paid: user.paid ?? false,
         initials: toInitials(user.nombre),
       }));
-    // Preview siempre usa participantes ficticios — no se toca PREVIEW_PARTICIPANTS_RAW
   }
 
   if (phases.length) {
