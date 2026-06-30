@@ -778,7 +778,7 @@ input, select, textarea { font-family: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.005em;
-  max-width: 60px;
+  max-width: 84px;
 }
 .matrix-table tbody td.cell-player .ppts {
   font-size: 9px;
@@ -787,7 +787,7 @@ input, select, textarea { font-family: inherit; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 60px;
+  max-width: 84px;
   margin-top: 1px;
 }
 .matrix-table tbody td.matrix-cell {
