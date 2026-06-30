@@ -2602,6 +2602,7 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
   const [bucketFilter, setBucketFilter] = React.useState("knockout");
   const [resGroup, setResGroup] = React.useState("ALL");
   const [saving, setSaving] = React.useState(false);
+  const [penaltyWinners, setPenaltyWinners] = React.useState({});
 
   const inBucket = MATCHES.filter(m => matchInBucket(m, bucketFilter));
   const resMatches = sortMatchesByKickoff(bucketFilter === "groups" && resGroup !== "ALL"
@@ -2628,9 +2629,18 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
     const calls = resMatches.map(m => {
       const r = realResults[m.id] || {home:"",away:""};
       if (r.home !== "" && r.away !== "") {
+        const isDraw = Number(r.home) === Number(r.away);
+        const isKO = matchBucket(m) === "knockout";
+        // Block save if KO draw without penalty winner selected
+        if (isDraw && isKO && !penaltyWinners[m.id]) return Promise.resolve();
         return api("/api/admin/results", {
           method: "PUT",
-          body: JSON.stringify({ match_id: m.id, home_score: Number(r.home), away_score: Number(r.away) }),
+          body: JSON.stringify({
+            match_id: m.id,
+            home_score: Number(r.home),
+            away_score: Number(r.away),
+            penalty_winner: (isDraw && isKO) ? penaltyWinners[m.id] : null,
+          }),
         });
       } else if (r.home === "" && r.away === "") {
         return api("/api/admin/results", {
@@ -2707,6 +2717,10 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
               const isPlaceholder = m.home == null;
               const canEdit = !isPlaceholder;
               const matchLabel = (m.phase || "groups") === "groups" && m.group ? `Grupo ${m.group}` : null;
+              const isKO = matchBucket(m) === "knockout";
+              const isDraw = r.home !== "" && r.away !== "" && Number(r.home) === Number(r.away);
+              const needsPenalty = isKO && isDraw && !readOnly;
+              const penWinner = penaltyWinners[m.id];
               return (
                 <div className={`match-row ${isPlaceholder ? "placeholder" : ""}`} key={m.id}>
                   <div className="match-team home">
@@ -2730,9 +2744,24 @@ function ResultsTab({ realResults, setRealResults, readOnly = false, matches }) 
                       ? <span className="placeholder-pill">{m.awayPlaceholder}</span>
                       : <><span className="name">{m.away}</span><FlagImg team={m.away}/></>}
                   </div>
+                  {needsPenalty && (
+                    <div className="match-penalty-row">
+                      <span className="muted-2" style={{fontSize:11,marginRight:8}}>Ganador penales:</span>
+                      <button
+                        className={`pen-btn ${penWinner === m.home ? "pen-btn-active" : ""}`}
+                        onClick={() => setPenaltyWinners(prev => ({...prev, [m.id]: m.home}))}
+                      ><FlagImg team={m.home}/>{m.home}</button>
+                      <button
+                        className={`pen-btn ${penWinner === m.away ? "pen-btn-active" : ""}`}
+                        onClick={() => setPenaltyWinners(prev => ({...prev, [m.id]: m.away}))}
+                      >{m.away}<FlagImg team={m.away}/></button>
+                    </div>
+                  )}
                   <div className="match-meta">
                     {r.home !== ""
-                      ? <span className="status-badge status-finished"><Icon.Check size={9}/>Cargado</span>
+                      ? needsPenalty && !penWinner
+                        ? <span className="status-badge status-live"><Icon.Clock size={9}/>Elige ganador penales</span>
+                        : <span className="status-badge status-finished"><Icon.Check size={9}/>Cargado</span>
                       : <span className="status-badge status-soon"><Icon.Clock size={9}/>Por cargar</span>}
                     {matchLabel && <span style={{marginLeft: 6}}>{matchLabel}</span>}
                     <span style={{marginLeft: 6}}>{m.date} · {m.time}</span>

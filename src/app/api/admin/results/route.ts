@@ -7,6 +7,7 @@ const schema = z.object({
   match_id: z.number().int().positive(),
   home_score: z.number().int().min(0),
   away_score: z.number().int().min(0),
+  penalty_winner: z.string().nullable().optional(),
 });
 
 // Bracket map: external_id → { next_external_id, slot: "home"|"away" }
@@ -47,17 +48,24 @@ async function advanceBracket(
   homeTeam: string,
   awayTeam: string,
   homeFlag: string | null,
-  awayFlag: string | null
+  awayFlag: string | null,
+  penaltyWinner: string | null = null
 ) {
-  if (homeScore === awayScore) return; // draw — no winner to advance
+  // Draw requires penalty_winner to advance bracket
+  if (homeScore === awayScore && !penaltyWinner) return;
 
-  const winner = homeScore > awayScore
-    ? { team: homeTeam, flag: homeFlag }
-    : { team: awayTeam, flag: awayFlag };
+  const winnerTeam = homeScore !== awayScore
+    ? (homeScore > awayScore ? homeTeam : awayTeam)
+    : penaltyWinner!;
+  const loserTeam = homeScore !== awayScore
+    ? (homeScore < awayScore ? homeTeam : awayTeam)
+    : (penaltyWinner === homeTeam ? awayTeam : homeTeam);
 
-  const loser = homeScore < awayScore
-    ? { team: homeTeam, flag: homeFlag }
-    : { team: awayTeam, flag: awayFlag };
+  const winnerFlag = winnerTeam === homeTeam ? homeFlag : awayFlag;
+  const loserFlag = loserTeam === homeTeam ? homeFlag : awayFlag;
+
+  const winner = { team: winnerTeam, flag: winnerFlag };
+  const loser  = { team: loserTeam,  flag: loserFlag  };
 
   const next = BRACKET_MAP[currentExternalId];
   if (next) {
@@ -96,10 +104,16 @@ export async function PUT(req: NextRequest) {
     .eq("id", parsed.data.match_id)
     .single();
 
-  const { error: dbError } = await supabase
-    .from("results")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: dbError } = await (supabase.from("results") as any)
     .upsert(
-      { ...parsed.data, updated_at: new Date().toISOString() },
+      {
+        match_id: parsed.data.match_id,
+        home_score: parsed.data.home_score,
+        away_score: parsed.data.away_score,
+        penalty_winner: parsed.data.penalty_winner ?? null,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: "match_id" }
     );
 
@@ -115,7 +129,8 @@ export async function PUT(req: NextRequest) {
       match.home,
       match.away,
       match.home_flag ?? null,
-      match.away_flag ?? null
+      match.away_flag ?? null,
+      parsed.data.penalty_winner ?? null
     );
   }
 

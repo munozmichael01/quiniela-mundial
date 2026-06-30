@@ -317,6 +317,19 @@ input, select, textarea { font-family: inherit; }
 .match-row.has-real {
   background: linear-gradient(0deg, var(--primary-soft) 0%, var(--primary-soft) 100%);
 }
+.match-penalty-row {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0 2px;
+}
+.pen-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface-2);
+  color: var(--ink-1); cursor: pointer; transition: all .15s;
+}
+.pen-btn:hover { border-color: var(--primary); color: var(--primary); }
+.pen-btn-active { border-color: var(--primary) !important; background: var(--primary) !important; color: #fff !important; }
 .real-result {
   font-size: 10px;
   background: var(--primary);
