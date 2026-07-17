@@ -3558,19 +3558,25 @@ function toInitials(name) {
 const KO_PHASES = new Set(["r32", "r16", "qf", "sf", "third", "final"]);
 const KO_ROUND = { r32: 4, r16: 5, qf: 6, sf: 7, third: 8, final: 9 };
 
+function isKnockoutPlaceholderName(name) {
+  return /^(Ganador|Perdedor|G |P )/i.test(String(name || "").trim());
+}
+
 function mapMatchFromApi(match) {
   const date = new Date(match.date);
   const formatted = formatMatchDateTime(date);
   const isKO = KO_PHASES.has(match.group);
+  const homeIsPlaceholder = isKO && isKnockoutPlaceholderName(match.home);
+  const awayIsPlaceholder = isKO && isKnockoutPlaceholderName(match.away);
   const mapped = {
     id: match.id,
     phase: isKO ? match.group : "groups",
     group: match.group,
     round: isKO ? (KO_ROUND[match.group] ?? 4) : 1,
-    home: isKO && !match.home_flag ? null : (match.home || null),
-    away: isKO && !match.away_flag ? null : (match.away || null),
-    homePlaceholder: isKO && !match.home_flag ? match.home : undefined,
-    awayPlaceholder: isKO && !match.away_flag ? match.away : undefined,
+    home: homeIsPlaceholder ? null : (match.home || null),
+    away: awayIsPlaceholder ? null : (match.away || null),
+    homePlaceholder: homeIsPlaceholder ? match.home : undefined,
+    awayPlaceholder: awayIsPlaceholder ? match.away : undefined,
     kickoffMs: date.getTime(),
     kickoffISO: match.date,
     date: formatted.date,

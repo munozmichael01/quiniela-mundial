@@ -111,7 +111,6 @@ export async function PUT(req: NextRequest) {
         match_id: parsed.data.match_id,
         home_score: parsed.data.home_score,
         away_score: parsed.data.away_score,
-        penalty_winner: parsed.data.penalty_winner ?? null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "match_id" }
