@@ -391,7 +391,7 @@ function withPredictedKnockoutLabels(matches, predictions) {
 
   setFromWinners("r16", "r32", [[0,3],[2,5],[1,4],[6,7],[11,10],[9,8],[14,13],[12,15]]);
   setFromWinners("qf", "r16", [[0,1],[2,3],[4,5],[6,7]]);
-  setFromWinners("sf", "qf", [[0,1],[2,3]]);
+  setFromWinners("sf", "qf", [[0,2],[1,3]]);
   setFromWinners("final", "sf", [[0,1]]);
 
   const third = byPhase("third")[0];
@@ -2379,7 +2379,7 @@ function buildRealBracket(matches, realResults) {
     away: r16Winner[away] || teamFromMatch(qf[index], "away"),
   }));
   const qfWinner = qfTeams.map((slot, index) => winnerTeamFromSlot(slot, realResults[qf[index]?.id]));
-  const sfTeams = [[0,1],[2,3]].map(([home, away], index) => ({
+  const sfTeams = [[0,2],[1,3]].map(([home, away], index) => ({
     home: qfWinner[home] || teamFromMatch(sf[index], "home"),
     away: qfWinner[away] || teamFromMatch(sf[index], "away"),
   }));

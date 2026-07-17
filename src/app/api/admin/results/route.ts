@@ -28,8 +28,8 @@ const BRACKET_MAP: Record<number, { next: number; slot: "home" | "away" }> = {
   1021: { next: 1027, slot: "home" }, 1022: { next: 1027, slot: "away" },
   1023: { next: 1028, slot: "home" }, 1024: { next: 1028, slot: "away" },
   // qf → sf
-  1025: { next: 1029, slot: "home" }, 1026: { next: 1029, slot: "away" },
-  1027: { next: 1030, slot: "home" }, 1028: { next: 1030, slot: "away" },
+  1025: { next: 1029, slot: "home" }, 1027: { next: 1029, slot: "away" },
+  1026: { next: 1030, slot: "home" }, 1028: { next: 1030, slot: "away" },
   // sf → final (winners) and third place (losers handled separately below)
   1029: { next: 1032, slot: "home" }, 1030: { next: 1032, slot: "away" },
 };
