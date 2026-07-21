@@ -1577,7 +1577,7 @@ window.LeaderboardScreen = LeaderboardScreen;
 
 // Bonus — 5 selectores con cierre automático el 11 de junio
 
-function BonusScreen({ bonus, setBonus, phaseOpen }) {
+function BonusScreen({ bonus, setBonus, phaseOpen, officialBonus }) {
   const { ALL_TEAMS, TOP_SCORERS, MVP_CANDIDATES, GOALKEEPERS } = window.QUINIELA_DATA;
   const [toast, setToast] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -1592,6 +1592,14 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
   ];
 
   const completed = fields.filter(f => bonus[f.key]).length;
+  const ob = officialBonus || {};
+  const hasOfficialResults = Object.values(ob).some(v => v);
+  const bonusPtsEarned = hasOfficialResults
+    ? fields.reduce((sum, f) => sum + (bonus[f.key] && ob[f.key] && bonus[f.key] === ob[f.key] ? 5 : 0), 0)
+    : 0;
+
+  function isHit(key) { return !!(bonus[key] && ob[key] && bonus[key] === ob[key]); }
+  function isMiss(key) { return !!(closed && hasOfficialResults && bonus[key] && ob[key] && bonus[key] !== ob[key]); }
 
   function set(key, val) {
     if (closed) return;
@@ -1653,13 +1661,19 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
         {fields.map(f => {
           const IconComp = Icon[f.icon];
           const value = bonus[f.key] || "";
+          const hit = isHit(f.key);
+          const miss = isMiss(f.key);
           return (
-            <div className={`bonus-card ${closed ? "locked" : ""}`} key={f.key}>
-              <div className="bonus-icon">
+            <div className={`bonus-card ${closed ? "locked" : ""}`} key={f.key} style={hit ? {borderColor:"var(--primary)",background:"var(--primary-soft)"} : miss ? {borderColor:"#F87171",background:"#FFF1F1"} : {}}>
+              <div className="bonus-icon" style={hit ? {background:"var(--primary)",color:"#fff"} : {}}>
                 <IconComp size={20}/>
               </div>
               <div className="bonus-body">
-                <div className="bonus-label">{f.label}</div>
+                <div className="bonus-label" style={{display:"flex",justifyContent:"space-between"}}>
+                  <span>{f.label}</span>
+                  {hit && <span style={{color:"var(--primary)",fontWeight:700}}>+5 pts</span>}
+                  {miss && ob[f.key] && <span style={{color:"#EF4444",fontSize:11}}>✗ {ob[f.key]}</span>}
+                </div>
                 {f.type === "select" ? (
                   <select
                     className="select"
@@ -1691,14 +1705,24 @@ function BonusScreen({ bonus, setBonus, phaseOpen }) {
 
       <div className="section" style={{paddingTop: 0}}>
         <div className="card" style={{padding: "14px 16px"}}>
-          <div className="section-title" style={{margin: 0, marginBottom: 8}}>Puntos bonus</div>
-          <div style={{display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 13}}>
-            <div>Campeón correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
-            <div>Subcampeón correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
-            <div>Goleador correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
-            <div>MVP correcto</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
-            <div>Mejor portero</div><div style={{fontWeight: 700, fontVariantNumeric: "tabular-nums"}}>+5</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div className="section-title" style={{margin:0}}>Puntos bonus</div>
+            {hasOfficialResults && <div style={{fontWeight:700,fontSize:18,color:"var(--primary)"}}>{bonusPtsEarned > 0 ? `+${bonusPtsEarned} pts` : "0 pts"}</div>}
           </div>
+          {hasOfficialResults ? (
+            <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:4,fontSize:13}}>
+              {fields.map(f => (
+                <React.Fragment key={f.key}>
+                  <div style={{color: isHit(f.key) ? "var(--primary)" : isMiss(f.key) ? "#EF4444" : "var(--ink-2)"}}>{f.label}</div>
+                  <div style={{fontWeight:700,color: isHit(f.key) ? "var(--primary)" : isMiss(f.key) ? "#EF4444" : "var(--ink-3)"}}>{isHit(f.key) ? "+5" : "—"}</div>
+                </React.Fragment>
+              ))}
+            </div>
+          ) : (
+            <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:4,fontSize:13,color:"var(--ink-3)"}}>
+              {fields.map(f => <React.Fragment key={f.key}><div>{f.label} correcto</div><div style={{fontWeight:700}}>+5</div></React.Fragment>)}
+            </div>
+          )}
         </div>
       </div>
 
@@ -3405,7 +3429,7 @@ function DesignedOriginalApp() {
               />
             )}
             {tab === "leaderboard" && <LeaderboardScreen currentUser={user} realResults={realResults} participantsKey={participantsLoaded} participantBonus={participantBonus} officialBonus={officialBonus}/>}
-            {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus} phaseOpen={phaseOpen}/>}
+            {tab === "bonus" && <BonusScreen bonus={bonus} setBonus={setBonus} phaseOpen={phaseOpen} officialBonus={officialBonus}/>}
             {tab === "matrix" && (
               <MatrixTab
                 realResults={realResults}
