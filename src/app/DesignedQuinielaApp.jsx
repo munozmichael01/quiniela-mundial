@@ -195,23 +195,30 @@ function matchInBucket(m, bucket) { return bucket === "all" || matchBucket(m) ==
 
 // Mock players for bonus (originales/genéricos, top scorers de la era)
 const TOP_SCORERS = [
-  "Kylian Mbappé (FRA)", "Erling Haaland (NOR)", "Vinícius Jr (BRA)",
-  "Lionel Messi (ARG)", "Harry Kane (ING)", "Lautaro Martínez (ARG)",
-  "Bukayo Saka (ING)", "Julián Álvarez (ARG)", "Cristiano Ronaldo (POR)",
-  "Rodrygo (BRA)", "Cody Gakpo (NED)", "Florian Wirtz (ALE)",
+  "Kylian Mbappé", "Erling Haaland", "Vinícius Jr",
+  "Lionel Messi", "Harry Kane", "Lautaro Martínez",
+  "Bukayo Saka", "Julián Álvarez", "Cristiano Ronaldo",
+  "Rodrygo", "Cody Gakpo", "Florian Wirtz",
+  "Alexandre Olise", "Ferran Torres", "Lamine Yamal",
+  "Mikel Oyarzabal",
 ];
 
 const MVP_CANDIDATES = [
-  "Lionel Messi (ARG)", "Kylian Mbappé (FRA)", "Jude Bellingham (ING)",
-  "Vinícius Jr (BRA)", "Rodri (ESP)", "Pedri (ESP)",
-  "Lamine Yamal (ESP)", "Erling Haaland (NOR)", "Florian Wirtz (ALE)",
+  "Lionel Messi", "Kylian Mbappé", "Jude Bellingham",
+  "Vinícius Jr", "Rodri", "Pedri",
+  "Lamine Yamal", "Erling Haaland", "Florian Wirtz",
+  "Vitinha", "Bruno Fernandes", "Ousmane Dembélé",
+  "Cristiano Ronaldo", "Harry Kane", "Vinicius Jr",
+  "Leo Messi", "Cherki",
 ];
 
 const GOALKEEPERS = [
-  "Thibaut Courtois (BEL)", "Gianluigi Donnarumma (ITA)",
-  "Emiliano Martínez (ARG)", "Mike Maignan (FRA)",
-  "Alisson Becker (BRA)", "Unai Simón (ESP)",
-  "Jordan Pickford (ING)", "Yann Sommer (SUI)",
+  "Thibaut Courtois", "Gianluigi Donnarumma",
+  "Emiliano Martínez", "Mike Maignan",
+  "Alisson Becker", "Unai Simón",
+  "Jordan Pickford", "Yann Sommer",
+  "Diogo Costa", "Yassine Bounou",
+  "Zion Suzuki", "Manuel Neuer",
 ];
 
 const ALL_TEAMS = [];
