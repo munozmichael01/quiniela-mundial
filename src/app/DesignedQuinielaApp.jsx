@@ -2943,8 +2943,10 @@ function OfficialBonusTab({ officialBonus, setOfficialBonus, flash, readOnly = f
   const completed = fields.filter(f => officialBonus[f.key]).length;
   function set(key, val) { if (readOnly) return; setOfficialBonus(prev => ({ ...prev, [key]: val })); }
   async function save() {
-    const res = await api("/api/admin/bonus-results", { method: "PUT", body: JSON.stringify(officialBonus) });
-    if (res?.ok) flash("Bonus oficiales guardados");
+    const strip = v => v ? v.replace(/\s*\([^)]+\)$/, "").trim() : v;
+    const clean = Object.fromEntries(Object.entries(officialBonus).map(([k, v]) => [k, strip(v)]));
+    const res = await api("/api/admin/bonus-results", { method: "PUT", body: JSON.stringify(clean) });
+    if (res?.ok) { setOfficialBonus(clean); flash("Bonus oficiales guardados"); }
     else flash("Error al guardar bonus oficiales");
   }
 
