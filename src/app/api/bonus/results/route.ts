@@ -7,12 +7,14 @@ export async function GET() {
   if (error) return error;
 
   const supabase = createServiceClient();
-  const { data } = await supabase
+  const { data, error: dbError } = await supabase
     .from("bonus_results")
     .select("campeon, subcampeon, goleador, mvp, portero")
     .order("id", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
+
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
   return NextResponse.json({ bonus_results: data ?? null });
 }
