@@ -2943,8 +2943,9 @@ function OfficialBonusTab({ officialBonus, setOfficialBonus, flash, readOnly = f
   const completed = fields.filter(f => officialBonus[f.key]).length;
   function set(key, val) { if (readOnly) return; setOfficialBonus(prev => ({ ...prev, [key]: val })); }
   async function save() {
-    // TODO backend: PUT /api/admin/bonus-results
-    flash("Bonus oficiales guardados");
+    const res = await api("/api/admin/bonus-results", { method: "PUT", body: JSON.stringify(officialBonus) });
+    if (res?.ok) flash("Bonus oficiales guardados");
+    else flash("Error al guardar bonus oficiales");
   }
 
   return (
@@ -3232,11 +3233,13 @@ function DesignedOriginalApp() {
       api("/api/phases"),
     ];
     if (user.role === "admin") {
-      calls.push(api("/api/admin/users")); // index 4
+      calls.push(api("/api/admin/users"));         // index 4
+      calls.push(api("/api/admin/bonus-results")); // index 5
     } else {
       calls.push(api("/api/users/public")); // index 4
       calls.push(api("/api/predictions"));  // index 5
       calls.push(api("/api/bonus"));        // index 6
+      calls.push(api("/api/bonus/results")); // index 7
     }
     Promise.allSettled(calls).then((results) => {
       const allPreds   = results[0].status === "fulfilled" ? results[0].value.predictions : [];
@@ -3259,6 +3262,11 @@ function DesignedOriginalApp() {
         }));
         setUsers(window.QUINIELA_DATA.MOCK_USERS.map(u => ({ ...u })));
         window.QUINIELA_DATA.MOCK_USERS.forEach(u => { idToAlias[u.uuid] = u.user; });
+        const officialBonusData = results[5]?.status === "fulfilled" ? results[5].value.bonus_results : null;
+        if (officialBonusData) {
+          const ob = { campeon: officialBonusData.campeon || "", subcampeon: officialBonusData.subcampeon || "", goleador: officialBonusData.goleador || "", mvp: officialBonusData.mvp || "", portero: officialBonusData.portero || "" };
+          setOfficialBonus(ob);
+        }
       } else {
         const publicUsers = results[4]?.status === "fulfilled" ? results[4].value.users : [];
         publicUsers.forEach(u => { idToAlias[u.id] = u.alias; });
@@ -3309,6 +3317,11 @@ function DesignedOriginalApp() {
         if (bonusRes?.status === "fulfilled" && bonusRes.value.bonus) {
           const b = bonusRes.value.bonus;
           setBonus({ campeon: b.campeon || "", subcampeon: b.subcampeon || "", goleador: b.goleador || "", mvp: b.mvp || "", portero: b.portero || "" });
+        }
+        const bonusResultsRes = results[7];
+        if (bonusResultsRes?.status === "fulfilled" && bonusResultsRes.value.bonus_results) {
+          const br = bonusResultsRes.value.bonus_results;
+          setOfficialBonus({ campeon: br.campeon || "", subcampeon: br.subcampeon || "", goleador: br.goleador || "", mvp: br.mvp || "", portero: br.portero || "" });
         }
       }
     });
